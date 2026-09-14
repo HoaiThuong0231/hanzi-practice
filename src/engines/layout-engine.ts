@@ -1948,7 +1948,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
 
   // Fill remaining page logic (Điền kín ô hết trang vs Để giấy trắng trơn)
   const shouldFillPage = config.fillRemainingPage !== false;
-  if (shouldFillPage && !config.blankPaper) {
+  if (shouldFillPage && !config.blankPaper && config.practiceMode !== 'radical') {
     const neededPages = Math.max(1, Math.ceil(allRows.length / rowsPerPage));
     const targetTotalRows = neededPages * rowsPerPage;
     while (allRows.length < targetTotalRows) {
@@ -1976,7 +1976,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
         isLineRow: config.gridType === 'line',
       });
     }
-  } else if (!shouldFillPage && !config.blankPaper) {
+  } else if (!shouldFillPage && !config.blankPaper && config.practiceMode !== 'radical') {
     // When NOT filling the whole page, append extra empty rows (Thêm hàng trống cuối đoạn văn/bài viết)
     const extraRows = config.extraEmptyRows ?? 0;
     for (let er = 0; er < extraRows; er++) {
@@ -2026,7 +2026,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
       const rowEffectiveH = isPinyinBoxGrid ? (gridSize + pinyinRowHeight) : (config.gridType === 'square' && showPinyin ? gridSize + pinyinRowHeight : gridSize);
       const blockHeight = rowEffectiveH * blockRowsCount + RADICAL_HEADER_SPACE + RADICAL_FOOTER_SPACE;
 
-      if (currentY + blockHeight > headerHeight + usableHeight && currentPageRows.length > 0) {
+      if (currentY + blockHeight > usableHeight && currentPageRows.length > 0) {
         pages.push({
           pageIndex: pages.length,
           rows: currentPageRows,

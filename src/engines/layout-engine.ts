@@ -24,7 +24,7 @@ import { FILL_STYLES } from '../types';
 
 import { getStrokeCount } from './stroke-engine';
 import { getBasicStroke, ALL_NQEZ_STROKES_TOKENS } from '../data/basic-strokes';
-import { getCharacterRadical, getCharacterStructure, getRadicalFullDetail, getRadicalVariant, getRadicalStrokeCountStatic } from '../data/cjk-radicals';
+import { getCharacterRadical, getCharacterStructure, getRadicalFullDetail, getRadicalVariant, getRadicalStrokeCountStatic, ALL_214_RADICALS } from '../data/cjk-radicals';
 
 const HEADER_HEIGHT_MM = 18; // Fixed header area height
 const PINYIN_ROW_HEIGHT_MM = 3.5; // Compact height above row for pinyin
@@ -501,7 +501,15 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
   const rowsPerPage = Math.max(1, Math.floor((availableHeightForRows + effectiveGap) / effectiveRowHeight));
 
   // Extract characters
-  const characters = extractCharacters(config.characters, config.practiceMode);
+  const rawCharacters = extractCharacters(config.characters, config.practiceMode);
+  let characters = rawCharacters;
+  if (config.practiceMode === 'radical') {
+    const hasRadicals = rawCharacters.length > 0 && rawCharacters.some(c => ALL_214_RADICALS.includes(c));
+    characters = hasRadicals ? rawCharacters : ALL_214_RADICALS;
+  } else if (config.practiceMode === 'basicStroke') {
+    const hasBasic = rawCharacters.length > 0 && rawCharacters.some(c => !!getBasicStroke(c));
+    characters = hasBasic ? rawCharacters : extractCharacters(ALL_NQEZ_STROKES_TOKENS, 'basicStroke');
+  }
   const totalCellsPerChar = config.sampleCount + config.traceCount + config.emptyCount;
 
   // Build character rows

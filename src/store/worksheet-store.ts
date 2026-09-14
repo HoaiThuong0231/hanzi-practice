@@ -172,9 +172,12 @@ function updateConfigAndLayout(
     }
   }
 
-  // When switching to radical mode, if characters is empty, populate with ALL_214_RADICALS
-  if (configUpdate.practiceMode === 'radical' && !newConfig.characters?.trim()) {
-    newConfig.characters = ALL_214_RADICALS.join(' ');
+  // When switching to radical mode, if characters don't contain radicals, populate with ALL_214_RADICALS
+  if (configUpdate.practiceMode === 'radical') {
+    const hasRadicals = newConfig.characters && newConfig.characters.split(/\s+/).some(c => ALL_214_RADICALS.includes(c));
+    if (!hasRadicals) {
+      newConfig.characters = ALL_214_RADICALS.join(' ');
+    }
   }
 
   // Stroke/radical/basicStroke work with square, tian, mi, hui box grids (NOT vertical or line)

@@ -7,6 +7,7 @@
 
 import React, { useCallback, useRef, useEffect } from 'react';
 import { useWorksheetStore } from '../../store/worksheet-store';
+import { ALL_214_RADICALS } from '../../data/cjk-radicals';
 import PageHeaderSettings from './PageHeaderSettings';
 
 const CharacterInput: React.FC = () => {
@@ -71,29 +72,57 @@ const CharacterInput: React.FC = () => {
           gap: '8px',
         }}>
           <span>Đang ở chế độ <b>{autoPresetLabel}</b>. Bạn có thể để trống hoặc tự gõ nét/chữ theo ý muốn.</span>
-          <button
-            type="button"
-            onClick={() => {
-              updateConfig({
-                practiceMode: 'single',
-                characters: '你好 学习 练习',
-                headerTitle: 'PHIẾU LUYỆN VIẾT CHỮ HÁN',
-              });
-            }}
-            style={{
-              padding: '2px 8px',
-              fontSize: '10px',
-              fontWeight: 700,
-              backgroundColor: '#2563eb',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              flexShrink: 0,
-            }}
-          >
-            Về chữ mẫu
-          </button>
+          <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+            {config.practiceMode === 'radical' && (
+              <button
+                type="button"
+                id="btn-load-214-radicals"
+                onClick={() => {
+                  updateConfig({
+                    practiceMode: 'radical',
+                    characters: ALL_214_RADICALS.join(' '),
+                    headerTitle: 'BẢNG 214 BỘ THỦ TIẾNG TRUNG',
+                  });
+                }}
+                style={{
+                  padding: '2px 8px',
+                  fontSize: '10px',
+                  fontWeight: 700,
+                  backgroundColor: '#16a34a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  flexShrink: 0,
+                }}
+              >
+                Nạp 214 bộ thủ
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                updateConfig({
+                  practiceMode: 'single',
+                  characters: '你好 学习 练习',
+                  headerTitle: 'PHIẾU LUYỆN VIẾT CHỮ HÁN',
+                });
+              }}
+              style={{
+                padding: '2px 8px',
+                fontSize: '10px',
+                fontWeight: 700,
+                backgroundColor: '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                flexShrink: 0,
+              }}
+            >
+              Về chữ mẫu
+            </button>
+          </div>
         </div>
       )}
 

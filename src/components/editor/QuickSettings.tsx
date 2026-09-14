@@ -221,12 +221,22 @@ const QuickSettings: React.FC<QuickSettingsProps> = ({ onOpenTemplates }) => {
                 return (
                   <button
                     key={m.mode}
+                    id={`btn-mode-${m.mode}`}
                     disabled={isDisabled}
                     onClick={() => {
                       if (isDisabled) return;
                       if (isActive) {
                         store.setPracticeMode('single');
                       } else {
+                        if (m.mode === 'radical') {
+                          const hasRadicals = config.characters && config.characters.split(/\s+/).some(c => ALL_214_RADICALS.includes(c));
+                          store.updateConfig({
+                            practiceMode: 'radical',
+                            characters: hasRadicals ? config.characters : ALL_214_RADICALS.join(' '),
+                            headerTitle: 'BẢNG 214 BỘ THỦ TIẾNG TRUNG',
+                          });
+                          return;
+                        }
                         store.setPracticeMode(m.mode as any);
                       }
                     }}

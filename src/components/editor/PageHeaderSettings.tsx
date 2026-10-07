@@ -20,7 +20,7 @@ const HEADER_FONTS = [
   { id: 'playfair', name: 'Playfair Display', value: "'Playfair Display', serif" },
   { id: 'dancing', name: 'Dancing Script', value: "'Dancing Script', cursive" },
   { id: 'wenkai', name: 'LXGW WenKai', value: "'LXGW WenKai', serif" },
-  { id: 'kaiti', name: 'KaiTi', value: "'KaiTi', '楷体', 'STKaiti', serif" },
+  { id: 'kaiti', name: 'KaiTi', value: "'LXGW WenKai', 'KaiTi', 'STKaiti', serif" },
   { id: 'mashanzheng', name: 'Ma Shan Zheng', value: "'Ma Shan Zheng', cursive" },
   { id: 'zhimangxing', name: 'Zhi Mang Xing', value: "'Zhi Mang Xing', cursive" },
 ];

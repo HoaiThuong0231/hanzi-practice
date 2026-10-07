@@ -194,13 +194,15 @@ function updateConfigAndLayout(
 
   const newLayout = computeLayout(newConfig);
 
-  // Preload stroke data asynchronously for stroke/radical/basicStroke modes, then re-compute layout
-  if ((newConfig.practiceMode === 'stroke' || newConfig.practiceMode === 'radical' || newConfig.practiceMode === 'basicStroke') && newConfig.characters && setFn) {
-    const chars = Array.from(new Set(newConfig.characters.trim().split(/\s+/)));
-    preloadStrokeDataForChars(chars).then(() => {
-      setFn((s) => ({
-        layout: computeLayout(s.config),
-      }));
+  // Preload stroke data asynchronously for all modes with characters in background, then re-compute layout
+  if (newConfig.characters && setFn) {
+    const chars = Array.from(new Set(newConfig.characters.trim().split(/\s+/).flatMap(s => s.split(''))));
+    preloadStrokeDataForChars(chars).then((loadedAny) => {
+      if (loadedAny) {
+        setFn((s) => ({
+          layout: computeLayout(s.config),
+        }));
+      }
     });
   }
 

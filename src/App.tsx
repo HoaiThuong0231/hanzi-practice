@@ -8,7 +8,7 @@
  * - Keyboard shortcuts
  */
 
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import AppShell from './components/layout/AppShell';
 import { useWorksheetStore } from './store/worksheet-store';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
@@ -18,17 +18,22 @@ const App: React.FC = () => {
   const { config, layout, undo, redo, setBottomSheetOpen, setActiveBottomTab, setSidebarOpen } =
     useWorksheetStore();
   const [exporting, setExporting] = useState(false);
+  const isExportingRef = useRef(false);
 
-  // PDF Export
+  // PDF Export (1-click direct download with concurrency protection)
   const handleExportPdf = useCallback(async () => {
-    if (exporting) return;
+    if (isExportingRef.current || exporting) return;
+    isExportingRef.current = true;
     setExporting(true);
     try {
       await exportPdf(config, layout);
-    } catch (err) {
-      console.error('PDF export error:', err);
-      alert('Lỗi khi xuất PDF. Vui lòng thử lại.');
+    } catch (err: any) {
+      if (err?.name !== 'AbortError') {
+        console.error('PDF export error:', err);
+        alert('Lỗi khi xuất PDF. Vui lòng thử lại.');
+      }
     } finally {
+      isExportingRef.current = false;
       setExporting(false);
     }
   }, [config, layout, exporting]);
@@ -77,43 +82,45 @@ const App: React.FC = () => {
 
   return (
     <>
-      <AppShell onExportPdf={handleExportPdf} onPrint={handlePrint} />
+      <AppShell onExportPdf={handleExportPdf} onPrint={handlePrint} exporting={exporting} />
 
       {/* Export loading overlay */}
       {exporting && (
         <div style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(15, 23, 42, 0.6)',
+          backdropFilter: 'blur(3px)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           zIndex: 9999,
+          animation: 'fadeIn 0.2s ease',
         }}>
           <div style={{
             background: 'white',
-            padding: '24px 40px',
-            borderRadius: '12px',
-            boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            padding: '28px 44px',
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '12px',
+            gap: '14px',
           }}>
             <div style={{
-              width: '40px',
-              height: '40px',
-              border: '3px solid #e2e8f0',
+              width: '44px',
+              height: '44px',
+              border: '3.5px solid #e2e8f0',
               borderTopColor: '#2563eb',
               borderRadius: '50%',
-              animation: 'spin 1s linear infinite',
+              animation: 'spin 0.9s linear infinite',
             }} />
             <div style={{
-              fontSize: '14px',
+              fontSize: '15px',
               fontWeight: 600,
-              color: '#1e293b',
+              color: '#0f172a',
             }}>
-              Đang tạo PDF...
+              Đang xuất file PDF...
             </div>
           </div>
         </div>
@@ -123,6 +130,10 @@ const App: React.FC = () => {
       <style>{`
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateX(-50%) translateY(10px); }

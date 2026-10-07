@@ -10,7 +10,8 @@ import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { WorksheetConfig, LayoutResult } from '../types';
 import { FILL_STYLES, getPageTitle } from '../types';
-import { getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG } from './stroke-engine';
+import { isChinesePunctuation } from './layout-engine';
+import { getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG, preloadStrokeDataForChars } from './stroke-engine';
 import { generatePinyinBoxSVG } from './grid-engine';
 
 const getFillStyleDash = (style: string) => {
@@ -42,6 +43,13 @@ async function loadFontBase64(): Promise<string> {
     reader.onerror = reject;
     reader.readAsDataURL(blob);
   });
+}
+
+// Pre-fetch font in background as soon as module is loaded
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    loadFontBase64().catch(() => { });
+  }, 500);
 }
 
 /**
@@ -84,8 +92,12 @@ function createPageSVG(
       const titleFontSize = config.headerFontSize ?? 4.5;
       const titleY = Math.max(4.5, Math.min(7.5, 6 - (titleFontSize - 4.5) * 0.15));
       const titleColor = config.headerFontColor || '#1e293b';
-      const titleFontFamily = config.headerFontFamily || "'LXGW WenKai', sans-serif";
-      const titleFontWeight = config.headerFontBold !== false ? '700' : '400';
+      const rawTitleFontFamily = config.headerFontFamily || '';
+      const asciiTitleFont = rawTitleFontFamily.replace(/[^\x00-\x7F]/g, '').replace(/,\s*,/g, ',').trim();
+      const titleFontFamily = asciiTitleFont
+        ? `'LXGW WenKai', ${asciiTitleFont}, sans-serif`
+        : "'LXGW WenKai', sans-serif";
+      const titleFontWeight = config.headerFontBold !== false ? 'bold' : 'normal';
 
       const title = document.createElementNS(ns, 'text');
       title.setAttribute('x', String(layout.usableWidth / 2));
@@ -105,73 +117,73 @@ function createPageSVG(
       headerGroup.appendChild(title);
     }
 
-      // Name/Class/Date fields
-      const fieldsGroup = document.createElementNS(ns, 'g');
-      fieldsGroup.setAttribute('transform', 'translate(0, 12)');
+    // Name/Class/Date fields
+    const fieldsGroup = document.createElementNS(ns, 'g');
+    fieldsGroup.setAttribute('transform', 'translate(0, 12)');
 
-      if (config.headerShowName) {
-        const label = document.createElementNS(ns, 'text');
-        label.setAttribute('x', '0');
-        label.setAttribute('y', '0');
-        label.setAttribute('font-family', 'sans-serif');
-        label.setAttribute('font-size', '3');
-        label.setAttribute('fill', '#475569');
-        label.textContent = 'Tên:';
-        fieldsGroup.appendChild(label);
+    if (config.headerShowName) {
+      const label = document.createElementNS(ns, 'text');
+      label.setAttribute('x', '0');
+      label.setAttribute('y', '0');
+      label.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+      label.setAttribute('font-size', '3');
+      label.setAttribute('fill', '#475569');
+      label.textContent = 'Tên:';
+      fieldsGroup.appendChild(label);
 
-        const line = document.createElementNS(ns, 'line');
-        line.setAttribute('x1', '8');
-        line.setAttribute('y1', '0.5');
-        line.setAttribute('x2', '50');
-        line.setAttribute('y2', '0.5');
-        line.setAttribute('stroke', '#cbd5e1');
-        line.setAttribute('stroke-width', '0.3');
-        fieldsGroup.appendChild(line);
-      }
-
-      if (config.headerShowClass) {
-        const label = document.createElementNS(ns, 'text');
-        label.setAttribute('x', '55');
-        label.setAttribute('y', '0');
-        label.setAttribute('font-family', 'sans-serif');
-        label.setAttribute('font-size', '3');
-        label.setAttribute('fill', '#475569');
-        label.textContent = 'Lớp:';
-        fieldsGroup.appendChild(label);
-
-        const line = document.createElementNS(ns, 'line');
-        line.setAttribute('x1', '63');
-        line.setAttribute('y1', '0.5');
-        line.setAttribute('x2', '90');
-        line.setAttribute('y2', '0.5');
-        line.setAttribute('stroke', '#cbd5e1');
-        line.setAttribute('stroke-width', '0.3');
-        fieldsGroup.appendChild(line);
-      }
-
-      if (config.headerShowDate) {
-        const label = document.createElementNS(ns, 'text');
-        label.setAttribute('x', '95');
-        label.setAttribute('y', '0');
-        label.setAttribute('font-family', 'sans-serif');
-        label.setAttribute('font-size', '3');
-        label.setAttribute('fill', '#475569');
-        label.textContent = 'Ngày:';
-        fieldsGroup.appendChild(label);
-
-        const line = document.createElementNS(ns, 'line');
-        line.setAttribute('x1', '105');
-        line.setAttribute('y1', '0.5');
-        line.setAttribute('x2', String(layout.usableWidth));
-        line.setAttribute('y2', '0.5');
-        line.setAttribute('stroke', '#cbd5e1');
-        line.setAttribute('stroke-width', '0.3');
-        fieldsGroup.appendChild(line);
-      }
-
-      headerGroup.appendChild(fieldsGroup);
-      svg.appendChild(headerGroup);
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', '8');
+      line.setAttribute('y1', '0.5');
+      line.setAttribute('x2', '50');
+      line.setAttribute('y2', '0.5');
+      line.setAttribute('stroke', '#cbd5e1');
+      line.setAttribute('stroke-width', '0.3');
+      fieldsGroup.appendChild(line);
     }
+
+    if (config.headerShowClass) {
+      const label = document.createElementNS(ns, 'text');
+      label.setAttribute('x', '55');
+      label.setAttribute('y', '0');
+      label.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+      label.setAttribute('font-size', '3');
+      label.setAttribute('fill', '#475569');
+      label.textContent = 'Lớp:';
+      fieldsGroup.appendChild(label);
+
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', '63');
+      line.setAttribute('y1', '0.5');
+      line.setAttribute('x2', '90');
+      line.setAttribute('y2', '0.5');
+      line.setAttribute('stroke', '#cbd5e1');
+      line.setAttribute('stroke-width', '0.3');
+      fieldsGroup.appendChild(line);
+    }
+
+    if (config.headerShowDate) {
+      const label = document.createElementNS(ns, 'text');
+      label.setAttribute('x', '95');
+      label.setAttribute('y', '0');
+      label.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+      label.setAttribute('font-size', '3');
+      label.setAttribute('fill', '#475569');
+      label.textContent = 'Ngày:';
+      fieldsGroup.appendChild(label);
+
+      const line = document.createElementNS(ns, 'line');
+      line.setAttribute('x1', '105');
+      line.setAttribute('y1', '0.5');
+      line.setAttribute('x2', String(layout.usableWidth));
+      line.setAttribute('y2', '0.5');
+      line.setAttribute('stroke', '#cbd5e1');
+      line.setAttribute('stroke-width', '0.3');
+      fieldsGroup.appendChild(line);
+    }
+
+    headerGroup.appendChild(fieldsGroup);
+    svg.appendChild(headerGroup);
+  }
 
 
   // Main content group
@@ -340,7 +352,7 @@ function createPageSVG(
         txt.setAttribute('x', String(gridSizeMm / 2));
         txt.setAttribute('y', String(row.y - 1.5));
         txt.setAttribute('text-anchor', 'middle');
-        txt.setAttribute('font-family', 'sans-serif');
+        txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
         txt.setAttribute('font-size', '3.2');
         txt.setAttribute('fill', '#334155');
         txt.setAttribute('font-weight', '500');
@@ -353,7 +365,7 @@ function createPageSVG(
       countTxt.setAttribute('x', String((layout.columns - 1) * gridSizeMm - 4));
       countTxt.setAttribute('y', String(row.y - 2));
       countTxt.setAttribute('text-anchor', 'end');
-      countTxt.setAttribute('font-family', 'sans-serif');
+      countTxt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
       countTxt.setAttribute('font-size', '2.8');
       countTxt.setAttribute('fill', '#475569');
       countTxt.setAttribute('font-weight', '600');
@@ -367,7 +379,7 @@ function createPageSVG(
         radTxt.setAttribute('x', String(gridSizeMm / 2));
         radTxt.setAttribute('y', String(row.y + gridSizeMm * rowCount + 2.5));
         radTxt.setAttribute('text-anchor', 'middle');
-        radTxt.setAttribute('font-family', 'sans-serif');
+        radTxt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
         radTxt.setAttribute('font-size', '2.5');
         radTxt.setAttribute('fill', '#475569');
         radTxt.textContent = `部首: ${row.radical}`;
@@ -378,7 +390,7 @@ function createPageSVG(
         structTxt.setAttribute('x', String(gridSizeMm / 2));
         structTxt.setAttribute('y', String(row.y + gridSizeMm * rowCount + 5.5));
         structTxt.setAttribute('text-anchor', 'middle');
-        structTxt.setAttribute('font-family', 'sans-serif');
+        structTxt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
         structTxt.setAttribute('font-size', '2.5');
         structTxt.setAttribute('fill', '#64748b');
         structTxt.textContent = `${row.structure.zh} (${row.structure.vi})`;
@@ -411,10 +423,10 @@ function createPageSVG(
               txt.setAttribute('x', String(cell.x + stepW / 2));
               txt.setAttribute('y', String(py));
               txt.setAttribute('text-anchor', 'middle');
-              txt.setAttribute('font-family', 'sans-serif');
+              txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
               txt.setAttribute('font-size', String(pinyinFontSize));
               txt.setAttribute('fill', config.fontColor || '#1e293b');
-              txt.setAttribute('font-weight', '500');
+              txt.setAttribute('font-weight', 'normal');
               txt.textContent = cell.pinyin || '';
               contentGroup.appendChild(txt);
             }
@@ -430,10 +442,10 @@ function createPageSVG(
               txt.setAttribute('x', String(cell.x + gridSizeMm / 2));
               txt.setAttribute('y', String(py));
               txt.setAttribute('text-anchor', 'middle');
-              txt.setAttribute('font-family', 'sans-serif');
+              txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
               txt.setAttribute('font-size', String(pinyinFontSize));
               txt.setAttribute('fill', config.fontColor || '#1e293b');
-              txt.setAttribute('font-weight', '500');
+              txt.setAttribute('font-weight', 'normal');
               txt.textContent = cell.pinyin || '';
               contentGroup.appendChild(txt);
             }
@@ -476,10 +488,10 @@ function createPageSVG(
           pyTxt.setAttribute('x', String(gridSizeMm / 2));
           pyTxt.setAttribute('y', String(layout.pinyinRowHeight * (2 / 3) + 0.1));
           pyTxt.setAttribute('text-anchor', 'middle');
-          pyTxt.setAttribute('font-family', 'sans-serif');
+          pyTxt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
           pyTxt.setAttribute('font-size', String(layout.pinyinRowHeight * 0.44));
           pyTxt.setAttribute('fill', config.fontColor || '#1e293b');
-          pyTxt.setAttribute('font-weight', '600');
+          pyTxt.setAttribute('font-weight', 'normal');
           pyTxt.textContent = cell.pinyin || '';
           pinyinHeaderGroup.appendChild(pyTxt);
         }
@@ -503,6 +515,15 @@ function createPageSVG(
       // Character rendering
       const isLineGrid = config.gridType === 'line';
       const isVerticalLine = config.gridType === 'verticalLine';
+      const isDefaultKaiTi = !config.fontFamily ||
+        config.fontFamily.toLowerCase().includes('lxgw') ||
+        config.fontFamily.toLowerCase().includes('kaiti') ||
+        config.fontFamily.toLowerCase().includes('stkaiti') ||
+        config.fontFamily.includes('楷体') ||
+        config.fontFamily.toLowerCase().includes('serif') ||
+        config.fontFamily.toLowerCase().includes('wenkai');
+      const hideTrace = config.showPinyin && config.showTrace === false;
+
       const colW = row.colWidth ?? (config.verticalColWidth ?? 16);
       const charW = row.lineCharWidth ?? 13.5;
       const stepW = row.lineCharStep ?? charW;
@@ -515,7 +536,91 @@ function createPageSVG(
           : gridSizeMm;
 
       const strokeData = cell.character ? getCachedStrokeData(cell.character) : null;
-      if (cell.type === 'strokeStep' && cell.character && strokeData) {
+
+      if (isVerticalLine) {
+        if (cell.character && cell.opacity > 0) {
+          const charH = colW * 1.12;
+          const traceColor = cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b');
+
+          if (strokeData && isDefaultKaiTi) {
+            const xOffset = Math.max(0, (colW - renderCharSize) / 2);
+            const yOffset = Math.max(0, (charH - renderCharSize) / 2);
+            const svgMarkup = generateFullCharSVG(
+              strokeData.strokes,
+              renderCharSize,
+              {
+                color: traceColor,
+                opacity: cell.opacity,
+                fitInnerBox: false,
+                fillStyle: cell.fillStyle,
+                strokeDash: getFillStyleDash(cell.fillStyle),
+              }
+            );
+            const tempG = document.createElementNS(ns, 'g');
+            tempG.setAttribute('transform', `translate(${xOffset}, ${yOffset})`);
+            tempG.innerHTML = svgMarkup;
+            while (tempG.firstChild) {
+              cellGroup.appendChild(tempG.firstChild);
+            }
+          } else {
+            const isCornerPunct = cell.character === '，' || cell.character === '。' || cell.character === '、' || cell.character === '：' || cell.character === '；';
+            const punctX = (colW / 2) + (isCornerPunct ? renderCharSize * 0.25 : 0);
+            const punctY = (charH / 2) + (isCornerPunct ? -renderCharSize * 0.20 : 0);
+            const fontSize = renderCharSize * 0.9;
+            const txt = document.createElementNS(ns, 'text');
+            txt.setAttribute('x', String(punctX));
+            txt.setAttribute('y', String(punctY + fontSize * 0.35));
+            txt.setAttribute('text-anchor', 'middle');
+            txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+            txt.setAttribute('font-size', String(fontSize));
+            txt.setAttribute('fill', traceColor);
+            txt.setAttribute('opacity', String(cell.opacity));
+            txt.textContent = cell.character;
+            cellGroup.appendChild(txt);
+          }
+        }
+      } else if (isLineGrid) {
+        if (cell.character && cell.opacity > 0) {
+          const traceColor = cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b');
+          const isPunct = isChinesePunctuation(cell.character);
+
+          if (hideTrace && !isPunct && cell.type === 'trace') {
+            // Hide trace character in line mode if requested
+          } else if (strokeData && isDefaultKaiTi) {
+            const xOffset = Math.max(0, (stepW - renderCharSize) / 2);
+            const yOffset = Math.max(0, baseLineH - renderCharSize - 0.6);
+            const svgMarkup = generateFullCharSVG(
+              strokeData.strokes,
+              renderCharSize,
+              {
+                color: traceColor,
+                opacity: cell.opacity,
+                fitInnerBox: false,
+                fillStyle: cell.fillStyle,
+                strokeDash: getFillStyleDash(cell.fillStyle),
+              }
+            );
+            const tempG = document.createElementNS(ns, 'g');
+            tempG.setAttribute('transform', `translate(${xOffset}, ${yOffset})`);
+            tempG.innerHTML = svgMarkup;
+            while (tempG.firstChild) {
+              cellGroup.appendChild(tempG.firstChild);
+            }
+          } else {
+            const textY = baseLineH - 1.6;
+            const txt = document.createElementNS(ns, 'text');
+            txt.setAttribute('x', String(stepW * 0.5));
+            txt.setAttribute('y', String(textY));
+            txt.setAttribute('text-anchor', 'middle');
+            txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+            txt.setAttribute('font-size', String(renderCharSize * 0.95));
+            txt.setAttribute('fill', traceColor);
+            txt.setAttribute('opacity', String(cell.opacity));
+            txt.textContent = cell.character;
+            cellGroup.appendChild(txt);
+          }
+        }
+      } else if (cell.type === 'strokeStep' && cell.character && strokeData) {
         const svgMarkup = generateStrokeStepSVG(
           strokeData.strokes,
           cell.strokeStepIndex ?? 0,
@@ -533,23 +638,13 @@ function createPageSVG(
         while (tempG.firstChild) {
           cellGroup.appendChild(tempG.firstChild);
         }
-      } else if (cell.character && strokeData && cell.opacity > 0 && (!config.fontFamily || config.fontFamily.includes('STKaiti') || config.fontFamily === "'LXGW WenKai', 'KaiTi', '楷体', 'STKaiti', serif")) {
-        const xOffset = isVerticalLine
-          ? Math.max(0, (colW - renderCharSize) / 2)
-          : isLineGrid
-            ? Math.max(0, (stepW - renderCharSize) / 2)
-            : 0;
-        const yOffset = isVerticalLine
-          ? Math.max(0, (colW * 1.12 - renderCharSize) / 2)
-          : isLineGrid
-            ? Math.max(0, baseLineH - renderCharSize - 0.6)
-            : 0;
-        const charColor = cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b');
+      } else if (cell.character && strokeData && cell.opacity > 0 && isDefaultKaiTi) {
+        const traceColor = cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b');
         const svgMarkup = generateFullCharSVG(
           strokeData.strokes,
-          renderCharSize,
+          gridSizeMm,
           {
-            color: charColor,
+            color: traceColor,
             opacity: cell.opacity,
             fitInnerBox: isHuiGrid,
             fillStyle: cell.fillStyle,
@@ -557,49 +652,28 @@ function createPageSVG(
           }
         );
         const tempG = document.createElementNS(ns, 'g');
-        if (xOffset > 0 || yOffset > 0) {
-          tempG.setAttribute('transform', `translate(${xOffset}, ${yOffset})`);
-        }
         tempG.innerHTML = svgMarkup;
         while (tempG.firstChild) {
           cellGroup.appendChild(tempG.firstChild);
         }
       } else if (cell.character && cell.opacity > 0) {
+        const isVerticalBox =
+          config.gridType === 'verticalSquare' ||
+          config.gridType === 'verticalTian' ||
+          config.gridType === 'verticalMi' ||
+          config.gridType === 'verticalHui' ||
+          config.gridType === 'verticalOHoi';
+        const isCornerPunct = cell.character === '，' || cell.character === '。' || cell.character === '、' || cell.character === '：' || cell.character === '；';
+        const punctShiftX = (isVerticalBox && isCornerPunct) ? charFontSize * 0.25 : 0;
+        const punctShiftY = (isVerticalBox && isCornerPunct) ? -charFontSize * 0.20 : 0;
+
         const txt = document.createElementNS(ns, 'text');
-        if (isVerticalLine) {
-          const isCornerPunct = cell.character === '，' || cell.character === '。' || cell.character === '、' || cell.character === '：' || cell.character === '；';
-          const punctShiftX = isCornerPunct ? renderCharSize * 0.25 : 0;
-          const punctShiftY = isCornerPunct ? -renderCharSize * 0.20 : 0;
-          txt.setAttribute('x', String(colW / 2 + punctShiftX));
-          txt.setAttribute('y', String(colW * 1.12 / 2 + punctShiftY));
-          txt.setAttribute('text-anchor', 'middle');
-          txt.setAttribute('dominant-baseline', 'central');
-          txt.setAttribute('font-family', config.fontFamily || "'LXGW WenKai', 'KaiTi', serif");
-          txt.setAttribute('font-size', String(renderCharSize * 0.9));
-        } else if (isLineGrid) {
-          txt.setAttribute('x', String(stepW * 0.5));
-          txt.setAttribute('y', String(baseLineH - 1.6));
-          txt.setAttribute('text-anchor', 'middle');
-          txt.setAttribute('font-family', config.fontFamily || "'LXGW WenKai', 'KaiTi', serif");
-          txt.setAttribute('font-size', String(renderCharSize * 0.95));
-        } else {
-          const isVerticalBox =
-            config.gridType === 'verticalSquare' ||
-            config.gridType === 'verticalTian' ||
-            config.gridType === 'verticalMi' ||
-            config.gridType === 'verticalHui' ||
-            config.gridType === 'verticalOHoi';
-          const isCornerPunct = cell.character === '，' || cell.character === '。' || cell.character === '、' || cell.character === '：' || cell.character === '；';
-          const punctShiftX = (isVerticalBox && isCornerPunct) ? charFontSize * 0.25 : 0;
-          const punctShiftY = (isVerticalBox && isCornerPunct) ? -charFontSize * 0.20 : 0;
-          txt.setAttribute('x', String(gridSizeMm / 2 + punctShiftX));
-          txt.setAttribute('y', String(gridSizeMm / 2 - gridSizeMm * 0.02 + punctShiftY));
-          txt.setAttribute('text-anchor', 'middle');
-          txt.setAttribute('dominant-baseline', 'central');
-          txt.setAttribute('font-family', config.fontFamily || "'LXGW WenKai', 'KaiTi', serif");
-          txt.setAttribute('font-size', String(charFontSize));
-        }
-        txt.setAttribute('font-weight', String(config.fontWeight));
+        txt.setAttribute('x', String(gridSizeMm / 2 + punctShiftX));
+        txt.setAttribute('y', String(gridSizeMm / 2 - gridSizeMm * 0.02 + charFontSize * 0.35 + punctShiftY));
+        txt.setAttribute('text-anchor', 'middle');
+        txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+        txt.setAttribute('font-size', String(charFontSize));
+        txt.setAttribute('font-weight', String(config.fontWeight) === 'bold' || String(config.fontWeight) === '700' ? 'bold' : 'normal');
         txt.setAttribute('fill', cell.type === 'trace' ? '#64748b' : config.fontColor);
         txt.setAttribute('opacity', String(cell.opacity));
         txt.textContent = cell.character;
@@ -617,7 +691,7 @@ function createPageSVG(
   pageNum.setAttribute('x', String(paperWidth - margins.right));
   pageNum.setAttribute('y', String(paperHeight - margins.bottom / 2));
   pageNum.setAttribute('text-anchor', 'end');
-  pageNum.setAttribute('font-family', 'sans-serif');
+  pageNum.setAttribute('font-family', "'LXGW WenKai', sans-serif");
   pageNum.setAttribute('font-size', '2.5');
   pageNum.setAttribute('fill', '#94a3b8');
   pageNum.textContent = String(pageIndex + 1);
@@ -627,13 +701,46 @@ function createPageSVG(
 }
 
 /**
- * Export the worksheet as PDF.
- * Returns a Blob of the PDF file.
+ * Generate sanitized filename based on worksheet configuration.
  */
-export async function exportPdf(
+export function getSuggestedPdfFilename(config: WorksheetConfig): string {
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const firstPageTitle = getPageTitle(config, 0);
+  let cleanTitle = '';
+  if (firstPageTitle) {
+    cleanTitle = firstPageTitle
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_\-\s]/g, '')
+      .trim()
+      .replace(/\s+/g, '-')
+      .toLowerCase();
+  }
+  const rawFileName = `${cleanTitle || 'luyen-viet'}-${dateStr}.pdf`;
+  return sanitizePdfFilename(rawFileName);
+}
+
+/**
+ * Generate PDF Document instance in memory.
+ */
+export async function generatePdfBlob(
   config: WorksheetConfig,
   layout: LayoutResult
-): Promise<void> {
+): Promise<Blob> {
+  // Preload stroke data for all characters in all pages before generating SVG
+  const allChars: string[] = [];
+  for (const page of layout.pages) {
+    for (const row of page.rows) {
+      for (const cell of row.cells) {
+        if (cell.character) {
+          allChars.push(cell.character);
+        }
+      }
+    }
+  }
+  await preloadStrokeDataForChars(allChars);
+
   // Load font
   const fontBase64 = await loadFontBase64();
 
@@ -648,9 +755,10 @@ export async function exportPdf(
     compress: true,
   });
 
-  // Register font
+  // Register font in jsPDF VFS (LXGW WenKai normal & bold)
   doc.addFileToVFS('LXGWWenKai-Regular.ttf', fontBase64);
   doc.addFont('LXGWWenKai-Regular.ttf', 'LXGW WenKai', 'normal');
+  doc.addFont('LXGWWenKai-Regular.ttf', 'LXGW WenKai', 'bold');
 
   // Render each page
   for (let i = 0; i < layout.pages.length; i++) {
@@ -670,13 +778,109 @@ export async function exportPdf(
     });
   }
 
-  // Generate filename
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-  const fileName = `luyen-viet-${dateStr}.pdf`;
+  const rawBlob = doc.output('blob');
+  return rawBlob.type === 'application/pdf' ? rawBlob : new Blob([rawBlob], { type: 'application/pdf' });
+}
 
-  // Download
-  doc.save(fileName);
+// Blob URL management pool (keeps URLs valid so Save As / Replace never encounters a revoked Blob)
+const MAX_ACTIVE_BLOB_URLS = 30;
+const activeBlobUrls: string[] = [];
+
+function registerBlobUrl(url: string): void {
+  activeBlobUrls.push(url);
+  // Keep the most recent URLs in memory; revoke older ones
+  if (activeBlobUrls.length > MAX_ACTIVE_BLOB_URLS) {
+    const oldestUrl = activeBlobUrls.shift();
+    if (oldestUrl) {
+      try {
+        URL.revokeObjectURL(oldestUrl);
+      } catch (_) { }
+    }
+  }
+}
+
+// Clean up all blob URLs on page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    activeBlobUrls.forEach((url) => {
+      try {
+        URL.revokeObjectURL(url);
+      } catch (_) { }
+    });
+    activeBlobUrls.length = 0;
+  });
+}
+
+/**
+ * Export the worksheet as PDF.
+ * Generates the PDF document and triggers instant, reliable 1-click download.
+ */
+export async function exportPdf(
+  config: WorksheetConfig,
+  layout: LayoutResult
+): Promise<void> {
+  const fileName = getSuggestedPdfFilename(config);
+  const blob = await generatePdfBlob(config, layout);
+  triggerDownload(blob, fileName);
+}
+
+/**
+ * Sanitize filename to ensure it is valid on Windows / Mac / Linux.
+ * Removes characters: \ / : * ? " < > | and control characters.
+ * Enforces Windows safe length and reserved names.
+ */
+export function sanitizePdfFilename(name: string): string {
+  if (!name) return 'luyen-viet.pdf';
+  // Remove Windows invalid filename characters: \ / : * ? " < > | and ASCII control characters
+  let clean = name.replace(/[\\/:*?"<>|\x00-\x1F]/g, '-');
+  // Remove leading/trailing dots and spaces
+  clean = clean.replace(/^[.\s]+|[.\s]+$/g, '').trim();
+  // Strip duplicate hyphens
+  clean = clean.replace(/-+/g, '-');
+
+  // Strip .pdf suffix if present to handle base name
+  const baseWithoutExt = clean.replace(/\.pdf$/i, '');
+  const reservedRegex = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+  let finalBase = reservedRegex.test(baseWithoutExt) ? `${baseWithoutExt}-file` : baseWithoutExt;
+
+  // Enforce reasonable length under Windows MAX_PATH limits (80 chars)
+  if (finalBase.length > 80) {
+    finalBase = finalBase.substring(0, 80).replace(/-+$/, '');
+  }
+  if (!finalBase) finalBase = 'luyen-viet';
+  return `${finalBase}.pdf`;
+}
+
+/**
+ * Triggers a 100% robust client-side download:
+ * - Dedicated Blob with explicit application/pdf MIME type
+ * - Managed in Blob URL pool so URL remains valid throughout any user Save As / Replace interaction
+ * - DOM-attached anchor click without any restrictive rel attributes
+ */
+export function triggerDownload(blob: Blob, filename: string): void {
+  const safeFilename = sanitizePdfFilename(filename);
+  const pdfBlob = blob.type === 'application/pdf' ? blob : new Blob([blob], { type: 'application/pdf' });
+  const blobUrl = URL.createObjectURL(pdfBlob);
+
+  registerBlobUrl(blobUrl);
+
+  const link = document.createElement('a');
+  link.style.display = 'none';
+  link.style.position = 'fixed';
+  link.style.left = '-9999px';
+  link.style.top = '-9999px';
+  link.href = blobUrl;
+  link.download = safeFilename;
+
+  document.body.appendChild(link);
+  link.click();
+
+  // Remove element from DOM after short delay
+  setTimeout(() => {
+    if (link.parentNode) {
+      link.parentNode.removeChild(link);
+    }
+  }, 1000);
 }
 
 /**

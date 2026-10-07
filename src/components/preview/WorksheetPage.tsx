@@ -476,8 +476,12 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
 
                       // If user chose a custom calligraphy font (Hành Thư, Hành Khải, Viết Tay, etc.), render using CSS font
                       const isDefaultKaiTi = !config.fontFamily || 
-                        config.fontFamily.includes('STKaiti') || 
-                        config.fontFamily === "'LXGW WenKai', 'KaiTi', '楷体', 'STKaiti', serif";
+                        config.fontFamily.toLowerCase().includes('lxgw') ||
+                        config.fontFamily.toLowerCase().includes('kaiti') ||
+                        config.fontFamily.toLowerCase().includes('stkaiti') ||
+                        config.fontFamily.includes('楷体') ||
+                        config.fontFamily.toLowerCase().includes('serif') ||
+                        config.fontFamily.toLowerCase().includes('wenkai');
 
                       if (charStroke && isDefaultKaiTi) {
                         const xOffset = Math.max(0, (stepW - renderCharSize) / 2);
@@ -538,7 +542,7 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
                         ),
                       }}
                     />
-                  ) : cell.character && charStroke && cell.opacity > 0 && (!config.fontFamily || config.fontFamily.includes('STKaiti') || config.fontFamily === "'LXGW WenKai', 'KaiTi', '楷体', 'STKaiti', serif") ? (
+                  ) : cell.character && charStroke && cell.opacity > 0 && (!config.fontFamily || config.fontFamily.toLowerCase().includes('lxgw') || config.fontFamily.toLowerCase().includes('kaiti') || config.fontFamily.toLowerCase().includes('stkaiti') || config.fontFamily.includes('楷体') || config.fontFamily.toLowerCase().includes('serif') || config.fontFamily.toLowerCase().includes('wenkai')) ? (
                     <g
                       dangerouslySetInnerHTML={{
                         __html: generateFullCharSVG(

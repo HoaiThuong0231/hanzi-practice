@@ -22,9 +22,10 @@ import styles from './AppShell.module.css';
 interface AppShellProps {
   onExportPdf: () => void;
   onPrint: () => void;
+  exporting?: boolean;
 }
 
-const AppShell: React.FC<AppShellProps> = ({ onExportPdf, onPrint }) => {
+const AppShell: React.FC<AppShellProps> = ({ onExportPdf, onPrint, exporting }) => {
   const { sidebarOpen, setSidebarOpen } = useWorksheetStore();
   const { isDesktop, isLaptop, isTablet, isMobile } = useResponsive();
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
@@ -47,6 +48,7 @@ const AppShell: React.FC<AppShellProps> = ({ onExportPdf, onPrint }) => {
         onExportPdf={onExportPdf}
         onPrint={onPrint}
         onOpenTemplates={() => setIsTemplateModalOpen(true)}
+        exporting={exporting}
       />
 
       {/* Main Content Area */}

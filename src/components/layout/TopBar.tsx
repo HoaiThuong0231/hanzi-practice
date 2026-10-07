@@ -14,6 +14,7 @@ interface TopBarProps {
   onExportPdf: () => void;
   onPrint: () => void;
   onOpenTemplates: () => void;
+  exporting?: boolean;
 }
 
 const topbarSelectStyle: React.CSSProperties = {
@@ -117,7 +118,7 @@ const TopBarToggle: React.FC<TopBarToggleProps> = ({
   );
 };
 
-const TopBar: React.FC<TopBarProps> = ({ onExportPdf, onPrint }) => {
+const TopBar: React.FC<TopBarProps> = ({ onExportPdf, onPrint, exporting }) => {
   const store = useWorksheetStore();
   const { config, toggleSidebar, sidebarOpen } = store;
   const { isTablet, isMobile } = useResponsive();
@@ -431,8 +432,9 @@ const TopBar: React.FC<TopBarProps> = ({ onExportPdf, onPrint }) => {
         {/* Action button: Xuất PDF */}
         <button
           onClick={onExportPdf}
+          disabled={exporting}
           aria-label="Xuất PDF"
-          title="Xuất PDF (Ctrl+E)"
+          title={exporting ? "Đang tạo file PDF..." : "Xuất PDF (Ctrl+E)"}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -441,26 +443,31 @@ const TopBar: React.FC<TopBarProps> = ({ onExportPdf, onPrint }) => {
             padding: '0 14px',
             border: 'none',
             borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--color-primary)',
+            backgroundColor: exporting ? '#94a3b8' : 'var(--color-primary)',
             color: 'var(--color-text-inverse)',
-            cursor: 'pointer',
+            cursor: exporting ? 'not-allowed' : 'pointer',
             fontSize: '12.5px',
             fontWeight: 600,
             whiteSpace: 'nowrap',
             boxShadow: 'var(--shadow-sm)',
             transition: 'all var(--transition-fast)',
             flexShrink: 0,
+            opacity: exporting ? 0.7 : 1,
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
-            e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            if (!exporting) {
+              e.currentTarget.style.backgroundColor = 'var(--color-primary-hover)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-primary)';
-            e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+            if (!exporting) {
+              e.currentTarget.style.backgroundColor = 'var(--color-primary)';
+              e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
+            }
           }}
         >
-          {isCompact ? 'PDF' : 'Xuất PDF'}
+          {exporting ? 'Đang xuất...' : (isCompact ? 'PDF' : 'Xuất PDF')}
         </button>
       </div>
     </header>

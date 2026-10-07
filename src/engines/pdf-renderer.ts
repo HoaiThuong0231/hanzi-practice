@@ -588,7 +588,7 @@ function createPageSVG(
           const traceColor = cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b');
           const isPunct = isChinesePunctuation(cell.character);
 
-          if (hideTrace && !isPunct && cell.type === 'trace') {
+          if (hideTrace && cell.type === 'trace') {
             // Hide trace character in line mode if requested
           } else if (strokeData && isDefaultKaiTi) {
             const xOffset = Math.max(0, (stepW - renderCharSize) / 2);

@@ -473,8 +473,8 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
                       const traceOpacity = cell.opacity;
                       const isPunct = isChinesePunctuation(cell.character);
 
-                      // If showTrace is false (hideTrace) and it's not punctuation, hide trace characters on line mode
-                      if (hideTrace && !isPunct && cell.type === 'trace') {
+                      // If showTrace is false (hideTrace), hide trace characters on line mode
+                      if (hideTrace && cell.type === 'trace') {
                         return null;
                       }
 

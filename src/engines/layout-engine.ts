@@ -627,13 +627,12 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
             // 2) Trace rows (with Pinyin)
             for (let t = 0; t < traceRowsCount; t++) {
               const lineCells: CellData[] = lineTokens.map((tok, idx) => {
-                const isPunct = isChinesePunctuation(tok);
                 const isSpace = tok === ' ';
-                const tokPinyin = (!isSpace) ? getPinyin(tok, config.pinyinWithTone) : undefined;
-                const isEmpty = isSpace || (shouldHideTrace && !isPunct);
+                const tokPinyin = (!isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
+                const isEmpty = isSpace || shouldHideTrace;
                 return {
                   character: isEmpty ? '' : tok,
-                  type: isSpace ? 'empty' : ((shouldHideTrace && !isPunct) ? 'empty' : 'trace'),
+                  type: isEmpty ? 'empty' : 'trace',
                   x: idx * charStep,
                   y: 0,
                   pinyin: tokPinyin,
@@ -1638,10 +1637,9 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
             currentRowCells = [];
           }
 
-          const isPunct = isChinesePunctuation(ch);
           const chPinyin = showPinyin ? getPinyin(ch, config.pinyinWithTone) : undefined;
           const showHint = config.showTrace !== false;
-          const isCharVisible = isPunct || (showHint && config.fillStyle !== 'empty');
+          const isCharVisible = showHint && config.fillStyle !== 'empty';
           const isSolid = config.fillStyle === 'solid';
 
           currentRowCells.push({
@@ -1726,7 +1724,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
 
         const tokPinyin = (!isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
         const shouldHideTrace = config.showTrace === false;
-        const isCellEmpty = isSpace || (shouldHideTrace && !isPunct);
+        const isCellEmpty = isSpace || shouldHideTrace;
         const isSolid = config.fillStyle === 'solid';
 
         let cellType: 'sample' | 'trace' | 'empty' = isCellEmpty ? 'empty' : (isSolid ? 'sample' : 'trace');
@@ -1805,7 +1803,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           const isSpace = tok === ' ';
           const tokPinyin = (!isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
           const shouldHideTrace = config.showTrace === false;
-          const isCellEmpty = isSpace || (shouldHideTrace && !isPunct);
+          const isCellEmpty = isSpace || shouldHideTrace;
 
           const isSolid = config.fillStyle === 'solid';
           return {

@@ -633,12 +633,12 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
                 const isEmpty = isSpace || (shouldHideTrace && !isPunct);
                 return {
                   character: isEmpty ? '' : tok,
-                  type: isSpace ? 'empty' : (isPunct ? 'sample' : (shouldHideTrace ? 'empty' : 'trace')),
+                  type: isSpace ? 'empty' : ((shouldHideTrace && !isPunct) ? 'empty' : 'trace'),
                   x: idx * charStep,
                   y: 0,
                   pinyin: tokPinyin,
-                  opacity: isEmpty ? 0 : (isPunct ? 0.85 : getOpacityForStyle(config.fillStyle, config.fontOpacity)),
-                  fillStyle: isPunct ? 'solid' : config.fillStyle,
+                  opacity: isEmpty ? 0 : getOpacityForStyle(config.fillStyle, config.fontOpacity),
+                  fillStyle: config.fillStyle,
                 };
               });
 
@@ -1642,15 +1642,16 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           const chPinyin = showPinyin ? getPinyin(ch, config.pinyinWithTone) : undefined;
           const showHint = config.showTrace !== false;
           const isCharVisible = isPunct || (showHint && config.fillStyle !== 'empty');
+          const isSolid = config.fillStyle === 'solid';
 
           currentRowCells.push({
             character: isCharVisible ? ch : '',
-            type: isPunct ? 'sample' : (isCharVisible ? 'trace' : 'empty'),
+            type: isCharVisible ? (isSolid ? 'sample' : 'trace') : 'empty',
             x: currentRowCells.length * gridSize,
             y: 0,
             pinyin: chPinyin,
-            opacity: isPunct ? 0.85 : (isCharVisible ? getOpacityForStyle(config.fillStyle, config.fontOpacity) : 0),
-            fillStyle: isPunct ? 'solid' : (showHint ? config.fillStyle : 'empty'),
+            opacity: isCharVisible ? (isSolid ? 1.0 : getOpacityForStyle(config.fillStyle, config.fontOpacity)) : 0,
+            fillStyle: isCharVisible ? config.fillStyle : 'empty',
           });
         }
       }
@@ -1725,24 +1726,13 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
 
         const tokPinyin = (!isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
         const shouldHideTrace = config.showTrace === false;
-        const isEmptyStyle = config.fillStyle === 'empty' || (shouldHideTrace && !isPunct);
+        const isCellEmpty = isSpace || (shouldHideTrace && !isPunct);
+        const isSolid = config.fillStyle === 'solid';
 
-        let cellType: 'sample' | 'trace' | 'empty' = isPunct ? 'sample' : 'trace';
-        let cellChar = tok;
-        let cellOpacity = isPunct ? 0.85 : getOpacityForStyle(config.fillStyle, config.fontOpacity);
-        let cellFillStyle = isPunct ? 'solid' : config.fillStyle;
-
-        if (isSpace || isEmptyStyle) {
-          cellType = 'empty';
-          cellChar = '';
-          cellOpacity = 0;
-          cellFillStyle = 'empty';
-        } else if (config.fillStyle === 'solid') {
-          cellType = 'sample';
-          cellChar = tok;
-          cellOpacity = 1.0;
-          cellFillStyle = 'solid';
-        }
+        let cellType: 'sample' | 'trace' | 'empty' = isCellEmpty ? 'empty' : (isSolid ? 'sample' : 'trace');
+        let cellChar = isCellEmpty ? '' : tok;
+        let cellOpacity = isCellEmpty ? 0 : (isSolid ? 1.0 : getOpacityForStyle(config.fillStyle, config.fontOpacity));
+        let cellFillStyle = isCellEmpty ? 'empty' : config.fillStyle;
 
         currentRowCells.push({
           character: cellChar,
@@ -1817,14 +1807,15 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           const shouldHideTrace = config.showTrace === false;
           const isCellEmpty = isSpace || (shouldHideTrace && !isPunct);
 
+          const isSolid = config.fillStyle === 'solid';
           return {
             character: isCellEmpty ? '' : tok,
-            type: isCellEmpty ? 'empty' : (isPunct ? 'sample' : 'trace'),
+            type: isCellEmpty ? 'empty' : (isSolid ? 'sample' : 'trace'),
             x: idx * gridSize,
             y: 0,
             pinyin: tokPinyin,
-            opacity: isCellEmpty ? 0 : (isPunct ? 0.85 : (config.fillStyle === 'solid' ? 1.0 : getOpacityForStyle(config.fillStyle, config.fontOpacity))),
-            fillStyle: isPunct ? 'solid' : config.fillStyle,
+            opacity: isCellEmpty ? 0 : (isSolid ? 1.0 : getOpacityForStyle(config.fillStyle, config.fontOpacity)),
+            fillStyle: isCellEmpty ? 'empty' : config.fillStyle,
           };
         });
 

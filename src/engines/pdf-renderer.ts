@@ -403,6 +403,10 @@ function createPageSVG(
 
     const shouldDisplayPdfPinyin = (cell: any): boolean => {
       if (!cell.pinyin || !config.showPinyin) return false;
+      // Punctuation is always shown when Pinyin is enabled
+      if (isChinesePunctuation(cell.pinyin) || isChinesePunctuation(cell.character)) {
+        return true;
+      }
       if (cell.type === 'trace' && ['single', 'stroke', 'basicStroke', 'radical'].includes(config.practiceMode) && !isLineGrid) {
         return false;
       }

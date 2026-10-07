@@ -173,7 +173,7 @@ export function extractParagraphTokens(text: string): string[] {
  * Get pinyin for a character or basic stroke
  */
 function getPinyin(char: string, withTone: boolean): string {
-  if (isChinesePunctuation(char)) return '';
+  if (isChinesePunctuation(char)) return char;
   const basicStroke = getBasicStroke(char);
   if (basicStroke) {
     return basicStroke.pinyin;
@@ -318,7 +318,7 @@ function computeVerticalLayout(
       for (const tok of tokens) {
         const isPunct = isChinesePunctuation(tok);
         const isSpace = tok === ' ';
-        const tokPinyin = (!isPunct && !isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
+        const tokPinyin = (!isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
 
         // Trace option: showTrace can be true (faint trace for handwriting practice) or false (sample / blank)
         const isTrace = config.showTrace !== false;
@@ -601,7 +601,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
               const lineCells: CellData[] = lineTokens.map((tok, idx) => {
                 const isPunct = isChinesePunctuation(tok);
                 const isSpace = tok === ' ';
-                const tokPinyin = (!isPunct && !isSpace) ? getPinyin(tok, config.pinyinWithTone) : undefined;
+                const tokPinyin = (!isSpace) ? getPinyin(tok, config.pinyinWithTone) : undefined;
                 return {
                   character: isSpace ? '' : tok,
                   type: isSpace ? 'empty' : 'sample',
@@ -629,16 +629,16 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
               const lineCells: CellData[] = lineTokens.map((tok, idx) => {
                 const isPunct = isChinesePunctuation(tok);
                 const isSpace = tok === ' ';
-                const tokPinyin = (!isPunct && !isSpace) ? getPinyin(tok, config.pinyinWithTone) : undefined;
-                const isEmpty = isSpace || shouldHideTrace;
+                const tokPinyin = (!isSpace) ? getPinyin(tok, config.pinyinWithTone) : undefined;
+                const isEmpty = isSpace || (shouldHideTrace && !isPunct);
                 return {
                   character: isEmpty ? '' : tok,
-                  type: isSpace ? 'empty' : (shouldHideTrace ? 'empty' : 'trace'),
+                  type: isSpace ? 'empty' : (isPunct ? 'sample' : (shouldHideTrace ? 'empty' : 'trace')),
                   x: idx * charStep,
                   y: 0,
                   pinyin: tokPinyin,
-                  opacity: isEmpty ? 0 : getOpacityForStyle(config.fillStyle, config.fontOpacity),
-                  fillStyle: config.fillStyle,
+                  opacity: isEmpty ? 0 : (isPunct ? 0.85 : getOpacityForStyle(config.fillStyle, config.fontOpacity)),
+                  fillStyle: isPunct ? 'solid' : config.fillStyle,
                 };
               });
 
@@ -1585,8 +1585,8 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
       let currentRowCells: CellData[] = [];
 
       for (const word of rawWords) {
-        // Extract CJK characters or alphanumeric tokens
-        const charsInWord = word.match(/[\u4e00-\u9fff\u3400-\u4dbf\u31c0-\u31ef\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{2ceb0}-\u{2ebef}\u{30000}-\u{3134f}]|[a-zA-Z0-9]/gu) || Array.from(word);
+        // Extract CJK characters, punctuation marks, or alphanumeric tokens
+        const charsInWord = extractParagraphTokens(word);
         if (charsInWord.length === 0) continue;
 
         const neededCells = (currentRowCells.length > 0 ? gapCount : 0) + charsInWord.length;
@@ -1638,18 +1638,19 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
             currentRowCells = [];
           }
 
+          const isPunct = isChinesePunctuation(ch);
           const chPinyin = showPinyin ? getPinyin(ch, config.pinyinWithTone) : undefined;
           const showHint = config.showTrace !== false;
-          const isEmptyStyle = config.fillStyle === 'empty' || !showHint;
+          const isCharVisible = isPunct || (showHint && config.fillStyle !== 'empty');
 
           currentRowCells.push({
-            character: (showHint && !isEmptyStyle) ? ch : '',
-            type: (showHint && !isEmptyStyle) ? 'trace' : 'empty',
+            character: isCharVisible ? ch : '',
+            type: isPunct ? 'sample' : (isCharVisible ? 'trace' : 'empty'),
             x: currentRowCells.length * gridSize,
             y: 0,
             pinyin: chPinyin,
-            opacity: (showHint && !isEmptyStyle) ? getOpacityForStyle(config.fillStyle, config.fontOpacity) : 0,
-            fillStyle: showHint ? config.fillStyle : 'empty',
+            opacity: isPunct ? 0.85 : (isCharVisible ? getOpacityForStyle(config.fillStyle, config.fontOpacity) : 0),
+            fillStyle: isPunct ? 'solid' : (showHint ? config.fillStyle : 'empty'),
           });
         }
       }
@@ -1722,14 +1723,14 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           currentRowCells = [];
         }
 
-        const tokPinyin = (!isPunct && !isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
+        const tokPinyin = (!isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
         const shouldHideTrace = config.showTrace === false;
-        const isEmptyStyle = config.fillStyle === 'empty' || shouldHideTrace;
+        const isEmptyStyle = config.fillStyle === 'empty' || (shouldHideTrace && !isPunct);
 
-        let cellType: 'sample' | 'trace' | 'empty' = 'trace';
+        let cellType: 'sample' | 'trace' | 'empty' = isPunct ? 'sample' : 'trace';
         let cellChar = tok;
-        let cellOpacity = getOpacityForStyle(config.fillStyle, config.fontOpacity);
-        let cellFillStyle = config.fillStyle;
+        let cellOpacity = isPunct ? 0.85 : getOpacityForStyle(config.fillStyle, config.fontOpacity);
+        let cellFillStyle = isPunct ? 'solid' : config.fillStyle;
 
         if (isSpace || isEmptyStyle) {
           cellType = 'empty';
@@ -1812,17 +1813,18 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
         const rowCells: CellData[] = lineTokens.map((tok, idx) => {
           const isPunct = isChinesePunctuation(tok);
           const isSpace = tok === ' ';
-          const tokPinyin = (!isPunct && !isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
+          const tokPinyin = (!isSpace && showPinyin) ? getPinyin(tok, config.pinyinWithTone) : undefined;
           const shouldHideTrace = config.showTrace === false;
+          const isCellEmpty = isSpace || (shouldHideTrace && !isPunct);
 
           return {
-            character: isSpace || shouldHideTrace ? '' : tok,
-            type: isSpace || shouldHideTrace ? 'empty' : 'sample',
+            character: isCellEmpty ? '' : tok,
+            type: isCellEmpty ? 'empty' : (isPunct ? 'sample' : 'trace'),
             x: idx * gridSize,
             y: 0,
             pinyin: tokPinyin,
-            opacity: isSpace || shouldHideTrace ? 0 : (config.fillStyle === 'solid' ? 1.0 : getOpacityForStyle(config.fillStyle, config.fontOpacity)),
-            fillStyle: config.fillStyle,
+            opacity: isCellEmpty ? 0 : (isPunct ? 0.85 : (config.fillStyle === 'solid' ? 1.0 : getOpacityForStyle(config.fillStyle, config.fontOpacity))),
+            fillStyle: isPunct ? 'solid' : config.fillStyle,
           };
         });
 

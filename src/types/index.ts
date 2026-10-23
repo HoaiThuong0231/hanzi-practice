@@ -267,7 +267,7 @@ export const FONT_OPTIONS: FontOption[] = [
     id: 'kaiti',
     name: 'Khải Thể Tiêu Chuẩn',
     chineseName: '楷体',
-    fontFamily: "'LXGW WenKai', 'KaiTi', 'STKaiti', serif",
+    fontFamily: "'KaiTi', 'STKaiti', '楷体', serif",
     category: 'kaiti',
     badge: 'Tiêu chuẩn',
   },
@@ -275,7 +275,7 @@ export const FONT_OPTIONS: FontOption[] = [
     id: 'lxgw-wenkai',
     name: 'Hành Khải Bút Cứng',
     chineseName: '文楷',
-    fontFamily: "'LXGW WenKai', cursive",
+    fontFamily: "'LXGW WenKai', sans-serif",
     category: 'cursive',
     badge: 'Hành Khải',
   },
@@ -532,7 +532,7 @@ export const WORKSHEET_TEMPLATES: WorksheetTemplate[] = [
 ];
 
 export const DEFAULT_CONFIG: WorksheetConfig = {
-  characters: '',
+  characters: '你好 学习 练习',
   blankPaper: false,
   practiceMode: 'single',
 
@@ -559,7 +559,7 @@ export const DEFAULT_CONFIG: WorksheetConfig = {
   fontOpacity: 0.35,
   fontWeight: 400,
   fontColor: '#1e293b',
-  fontFamily: "'LXGW WenKai', 'KaiTi', 'STKaiti', serif",
+  fontFamily: "'KaiTi', 'STKaiti', '楷体', serif",
   fillStyle: 'standard',
 
   sampleCount: 1,

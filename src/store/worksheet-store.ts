@@ -409,18 +409,21 @@ export const useWorksheetStore = create<WorksheetState>()(
             state.config.margins = { top: 10, right: 10, bottom: 10, left: 10 };
             updated = true;
           }
-          if (state.config.showOuterBorder === undefined) {
-            state.config.showOuterBorder = true;
+          const validModes = ['single', 'vocabulary', 'sentence', 'paragraph', 'pinyin', 'pinyinMeaning', 'stroke', 'basicStroke', 'radical', 'pinyinDictation'];
+          if (!validModes.includes(state.config.practiceMode)) {
+            state.config.practiceMode = 'single';
             updated = true;
           }
-          if (state.config.showBrandText === undefined) {
-            state.config.showBrandText = true;
+          if (!state.config.characters && !state.config.blankPaper) {
+            state.config.characters = '你好 学习 练习';
             updated = true;
           }
+          state.config.showOuterBorder = true;
+          state.config.showBrandText = true;
           if (!state.config.brandText) {
             state.config.brandText = 'Junia Design';
-            updated = true;
           }
+          updated = true;
           if (updated) {
             state.layout = computeLayout(state.config);
           }

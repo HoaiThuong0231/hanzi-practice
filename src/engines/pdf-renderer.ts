@@ -10,7 +10,7 @@ import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { WorksheetConfig, LayoutResult } from '../types';
 import { FILL_STYLES, getPageTitle } from '../types';
-import { isChinesePunctuation, calculateOuterFrameBounds } from './layout-engine';
+import { isChinesePunctuation, calculateOuterFrameBounds, isStandardKaiTiMode } from './layout-engine';
 import { getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG, preloadStrokeDataForChars } from './stroke-engine';
 import { generatePinyinBoxSVG } from './grid-engine';
 
@@ -537,13 +537,7 @@ function createPageSVG(
       // Character rendering
       const isLineGrid = config.gridType === 'line';
       const isVerticalLine = config.gridType === 'verticalLine';
-      const isDefaultKaiTi = !config.fontFamily ||
-        config.fontFamily.toLowerCase().includes('lxgw') ||
-        config.fontFamily.toLowerCase().includes('kaiti') ||
-        config.fontFamily.toLowerCase().includes('stkaiti') ||
-        config.fontFamily.includes('楷体') ||
-        config.fontFamily.toLowerCase().includes('serif') ||
-        config.fontFamily.toLowerCase().includes('wenkai');
+      const isDefaultKaiTi = isStandardKaiTiMode(config);
       const hideTrace = config.showPinyin && config.showTrace === false;
 
       const colW = row.colWidth ?? (config.verticalColWidth ?? 16);
@@ -593,7 +587,7 @@ function createPageSVG(
             txt.setAttribute('x', String(punctX));
             txt.setAttribute('y', String(punctY + fontSize * 0.35));
             txt.setAttribute('text-anchor', 'middle');
-            txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+            txt.setAttribute('font-family', config.fontFamily ? `${config.fontFamily}, 'LXGW WenKai', sans-serif` : "'LXGW WenKai', sans-serif");
             txt.setAttribute('font-size', String(fontSize));
             txt.setAttribute('fill', traceColor);
             txt.setAttribute('opacity', String(cell.opacity));
@@ -634,7 +628,7 @@ function createPageSVG(
             txt.setAttribute('x', String(stepW * 0.5));
             txt.setAttribute('y', String(textY));
             txt.setAttribute('text-anchor', 'middle');
-            txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+            txt.setAttribute('font-family', config.fontFamily ? `${config.fontFamily}, 'LXGW WenKai', sans-serif` : "'LXGW WenKai', sans-serif");
             txt.setAttribute('font-size', String(renderCharSize * 0.95));
             txt.setAttribute('fill', traceColor);
             txt.setAttribute('opacity', String(cell.opacity));
@@ -693,7 +687,7 @@ function createPageSVG(
         txt.setAttribute('x', String(gridSizeMm / 2 + punctShiftX));
         txt.setAttribute('y', String(gridSizeMm / 2 - gridSizeMm * 0.02 + charFontSize * 0.35 + punctShiftY));
         txt.setAttribute('text-anchor', 'middle');
-        txt.setAttribute('font-family', "'LXGW WenKai', sans-serif");
+        txt.setAttribute('font-family', config.fontFamily ? `${config.fontFamily}, 'LXGW WenKai', sans-serif` : "'LXGW WenKai', sans-serif");
         txt.setAttribute('font-size', String(charFontSize));
         txt.setAttribute('font-weight', String(config.fontWeight) === 'bold' || String(config.fontWeight) === '700' ? 'bold' : 'normal');
         txt.setAttribute('fill', cell.type === 'trace' ? '#64748b' : config.fontColor);

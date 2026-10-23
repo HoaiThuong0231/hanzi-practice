@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import type { PageLayout, WorksheetConfig, LayoutResult } from '../../types';
 import { generateGridSVG, generatePinyinBoxSVG, type GridSVGOptions } from '../../engines/grid-engine';
-import { isChinesePunctuation, calculateOuterFrameBounds } from '../../engines/layout-engine';
+import { isChinesePunctuation, calculateOuterFrameBounds, isStandardKaiTiMode } from '../../engines/layout-engine';
 import { FILL_STYLES, getPageTitle } from '../../types';
 import { loadStrokeData, getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG, type StrokeCharData } from '../../engines/stroke-engine';
 
@@ -488,14 +488,8 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
                         return null;
                       }
 
-                      // If user chose a custom calligraphy font (Hành Thư, Hành Khải, Viết Tay, etc.), render using CSS font
-                      const isDefaultKaiTi = !config.fontFamily || 
-                        config.fontFamily.toLowerCase().includes('lxgw') ||
-                        config.fontFamily.toLowerCase().includes('kaiti') ||
-                        config.fontFamily.toLowerCase().includes('stkaiti') ||
-                        config.fontFamily.includes('楷体') ||
-                        config.fontFamily.toLowerCase().includes('serif') ||
-                        config.fontFamily.toLowerCase().includes('wenkai');
+                      // If user chose a custom font (Hành Khải Bút Cứng, Hành Thư, Thư Pháp, Viết Tay, Tống Thể, etc.), render using CSS font
+                      const isDefaultKaiTi = isStandardKaiTiMode(config);
 
                       if (charStroke && isDefaultKaiTi) {
                         const xOffset = Math.max(0, (stepW - renderCharSize) / 2);
@@ -528,7 +522,7 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
                           x={stepW * 0.5}
                           y={textY}
                           textAnchor="middle"
-                          fontFamily={config.fontFamily || "'LXGW WenKai', 'KaiTi', '楷体', serif"}
+                          fontFamily={config.fontFamily || "'LXGW WenKai', sans-serif"}
                           fontSize={renderCharSize * 0.95}
                           fontWeight={config.fontWeight}
                           fill={cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b')}
@@ -556,7 +550,7 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
                         ),
                       }}
                     />
-                  ) : cell.character && charStroke && cell.opacity > 0 && (!config.fontFamily || config.fontFamily.toLowerCase().includes('lxgw') || config.fontFamily.toLowerCase().includes('kaiti') || config.fontFamily.toLowerCase().includes('stkaiti') || config.fontFamily.includes('楷体') || config.fontFamily.toLowerCase().includes('serif') || config.fontFamily.toLowerCase().includes('wenkai')) ? (
+                  ) : cell.character && charStroke && cell.opacity > 0 && isStandardKaiTiMode(config) ? (
                     <g
                       dangerouslySetInnerHTML={{
                         __html: generateFullCharSVG(
@@ -579,16 +573,16 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
                     return (
                     <text
                       x={gridSizeMm / 2 + punctShiftX}
-                      y={gridSizeMm / 2 - gridSizeMm * 0.02 + punctShiftY}
+                      y={gridSizeMm / 2 + punctShiftY}
                       textAnchor="middle"
                       dominantBaseline="central"
-                      fontFamily={config.fontFamily || "'LXGW WenKai', 'KaiTi', '楷体', serif"}
+                      fontFamily={config.fontFamily || "'LXGW WenKai', sans-serif"}
                       fontSize={charFontSize}
                       fontWeight={config.fontWeight}
                       fill={cell.type === 'trace' ? '#64748b' : config.fontColor}
                       opacity={cell.opacity}
                       style={
-                        getFillStyleDash(cell.fillStyle)
+                        getFillStyleDash(cell.fillStyle) && !charStroke
                           ? {
                               stroke: cell.type === 'trace' ? '#64748b' : config.fontColor,
                               strokeWidth: gridSizeMm * 0.005,

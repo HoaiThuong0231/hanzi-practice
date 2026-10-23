@@ -120,6 +120,19 @@ export function isChinesePunctuation(char: string): boolean {
 }
 
 /**
+ * Determine if standard KaiTi vector stroke rendering should be used.
+ * Used for stroke decomposition modes or when the user explicitly selected Khải Thể Tiêu Chuẩn.
+ * When false, font text rendering is used with the user's selected Chinese font.
+ */
+export function isStandardKaiTiMode(config: WorksheetConfig): boolean {
+  if (config.practiceMode === 'stroke' || config.practiceMode === 'basicStroke') return true;
+  if (!config.fontFamily) return true;
+  const f = config.fontFamily.toLowerCase();
+  // Standard KaiTi only when user chose kaiti, and not a custom font like lxgw-wenkai, songti, mashan, etc.
+  return (f.includes('kaiti') || f.includes('楷体')) && !f.includes('wenkai') && !f.includes('lxgw');
+}
+
+/**
  * Extract tokens for flow/paragraph/sentence mode, preserving Chinese punctuation
  * and normalizing half-width punctuation marks.
  */
@@ -404,6 +417,12 @@ function computeVerticalLayout(
  * Pure function — no side effects.
  */
 export function computeLayout(config: WorksheetConfig): LayoutResult {
+  const validModes: PracticeMode[] = ['single', 'vocabulary', 'sentence', 'paragraph', 'pinyin', 'pinyinMeaning', 'stroke', 'basicStroke', 'radical', 'pinyinDictation'];
+  const safePracticeMode: PracticeMode = validModes.includes(config.practiceMode as PracticeMode) ? config.practiceMode : 'single';
+  if (config.practiceMode !== safePracticeMode) {
+    config = { ...config, practiceMode: safePracticeMode };
+  }
+
   const { width: paperWidth, height: paperHeight } = getEffectivePaperDimensions(
     config.paperSize,
     config.orientation

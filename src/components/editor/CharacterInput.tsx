@@ -5,36 +5,31 @@
  * Optimized for both physical keyboard and virtual keyboard (tablet).
  */
 
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { useWorksheetStore } from '../../store/worksheet-store';
 import { ALL_214_RADICALS } from '../../data/cjk-radicals';
 import PageHeaderSettings from './PageHeaderSettings';
 
 const CharacterInput: React.FC = () => {
   const { config, setCharacters, updateConfig } = useWorksheetStore();
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [localText, setLocalText] = useState(config.characters || '');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const isAutoPresetActive = config.practiceMode === 'radical' || config.practiceMode === 'basicStroke';
   const autoPresetLabel = config.practiceMode === 'radical' ? '214 Bộ thủ' : 'Các nét cơ bản';
 
   useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.value = config.characters;
-    }
+    setLocalText(config.characters || '');
   }, [config.characters]);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const value = e.target.value;
+    setLocalText(value);
     // Debounce layout recalculation
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setCharacters(value);
-    }, 150);
-    // Immediately update the textarea value (optimistic)
-    if (textareaRef.current) {
-      textareaRef.current.value = value;
-    }
+    }, 120);
   }, [setCharacters]);
 
   // Count CJK characters
@@ -127,9 +122,8 @@ const CharacterInput: React.FC = () => {
       )}
 
       <textarea
-        ref={textareaRef}
         id="char-input"
-        defaultValue={config.characters}
+        value={localText}
         onChange={handleChange}
         placeholder="Nhập chữ Hán, bộ thủ hoặc nét tại đây, ví dụ: 你好&#10;学习中文&#10;春天来了，万物复苏。"
         rows={6}

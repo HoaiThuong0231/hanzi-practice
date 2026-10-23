@@ -9,7 +9,7 @@
 import React, { useState, useEffect } from 'react';
 import type { PageLayout, WorksheetConfig, LayoutResult } from '../../types';
 import { generateGridSVG, generatePinyinBoxSVG, type GridSVGOptions } from '../../engines/grid-engine';
-import { isChinesePunctuation } from '../../engines/layout-engine';
+import { isChinesePunctuation, calculateOuterFrameBounds } from '../../engines/layout-engine';
 import { FILL_STYLES, getPageTitle } from '../../types';
 import { loadStrokeData, getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG, type StrokeCharData } from '../../engines/stroke-engine';
 
@@ -30,6 +30,13 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
   const { paperWidth, paperHeight, gridSizeMm } = layout;
   const { margins } = config;
   const [strokeDataMap, setStrokeDataMap] = useState<Record<string, StrokeCharData>>({});
+
+  const { borderX, borderY, borderWidth, borderHeight, gridOffsetX } = calculateOuterFrameBounds(
+    page,
+    config,
+    layout,
+    1.2
+  );
 
   useEffect(() => {
     const charsToLoad = new Set<string>();
@@ -160,7 +167,8 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
         const titleFontStyle = config.headerFontItalic ? 'italic' : 'normal';
         const titleUnderline = !!config.headerFontUnderline;
 
-        const titleY = Math.max(4.5, Math.min(7.5, 6 - (titleFontSize - 4.5) * 0.15));
+        const hasMetaFields = !!(config.headerShowName || config.headerShowClass || config.headerShowDate);
+        const titleY = hasMetaFields ? 5.5 : 7.0;
 
         return (
           <g transform={`translate(${margins.left}, ${margins.top})`}>
@@ -182,32 +190,34 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
             ) : null}
 
           {/* Name / Class / Date fields */}
-          <g transform={`translate(0, 12)`}>
-            {config.headerShowName && (
-              <g>
-                <text x={0} y={0} fontFamily="var(--font-sans), sans-serif" fontSize={3} fill="#475569">
-                  Tên:
-                </text>
-                <line x1={8} y1={0.5} x2={50} y2={0.5} stroke="#cbd5e1" strokeWidth={0.2} />
-              </g>
-            )}
-            {config.headerShowClass && (
-              <g>
-                <text x={55} y={0} fontFamily="var(--font-sans), sans-serif" fontSize={3} fill="#475569">
-                  Lớp:
-                </text>
-                <line x1={63} y1={0.5} x2={90} y2={0.5} stroke="#cbd5e1" strokeWidth={0.2} />
-              </g>
-            )}
-            {config.headerShowDate && (
-              <g>
-                <text x={95} y={0} fontFamily="var(--font-sans), sans-serif" fontSize={3} fill="#475569">
-                  Ngày:
-                </text>
-                <line x1={105} y1={0.5} x2={layout.usableWidth} y2={0.5} stroke="#cbd5e1" strokeWidth={0.2} />
-              </g>
-            )}
-          </g>
+          {hasMetaFields && (
+            <g transform={`translate(0, 13.0)`}>
+              {config.headerShowName && (
+                <g>
+                  <text x={0} y={0} fontFamily="var(--font-sans), sans-serif" fontSize={2.8} fill="#475569">
+                    Tên:
+                  </text>
+                  <line x1={8} y1={0.5} x2={50} y2={0.5} stroke="#cbd5e1" strokeWidth={0.2} />
+                </g>
+              )}
+              {config.headerShowClass && (
+                <g>
+                  <text x={55} y={0} fontFamily="var(--font-sans), sans-serif" fontSize={2.8} fill="#475569">
+                    Lớp:
+                  </text>
+                  <line x1={63} y1={0.5} x2={90} y2={0.5} stroke="#cbd5e1" strokeWidth={0.2} />
+                </g>
+              )}
+              {config.headerShowDate && (
+                <g>
+                  <text x={95} y={0} fontFamily="var(--font-sans), sans-serif" fontSize={2.8} fill="#475569">
+                    Ngày:
+                  </text>
+                  <line x1={105} y1={0.5} x2={layout.usableWidth} y2={0.5} stroke="#cbd5e1" strokeWidth={0.2} />
+                </g>
+              )}
+            </g>
+          )}
         </g>
         );
       })()}
@@ -259,7 +269,7 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
         })()}
 
         {page.rows.map((row, rowIdx) => (
-          <g key={rowIdx}>
+          <g key={rowIdx} transform={gridOffsetX > 0 ? `translate(${gridOffsetX}, 0)` : undefined}>
             {/* 214 Radical / Character Structure Block Header */}
             {row.isRadicalBlock && config.practiceMode === 'radical' && (
               <g>
@@ -599,6 +609,45 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
             })}
           </g>
         ))}
+      </g>
+
+      {/* Outer Border & Brand Watermark ("Junia Design") */}
+      <g transform={`translate(${margins.left}, ${margins.top})`}>
+        {config.showOuterBorder !== false && (
+          <rect
+            x={borderX}
+            y={borderY}
+            width={borderWidth}
+            height={borderHeight}
+            fill="none"
+            stroke={config.gridLineColor}
+            strokeWidth={config.outerBorderWidth ?? 0.55}
+          />
+        )}
+        {config.showBrandText !== false && (() => {
+          const hasMetaFields = !!(config.headerShowName || config.headerShowClass || config.headerShowDate);
+          const brandY = config.showHeader && page.headerHeight > 0
+            ? (hasMetaFields ? 5.5 : 7.0)
+            : (borderY - 3.8);
+
+          return (
+            <text
+              x={borderX + borderWidth - 2.0}
+              y={brandY}
+              textAnchor="end"
+              dominantBaseline="alphabetic"
+              fill={config.gridLineColor}
+              fontFamily="'Dancing Script', 'Great Vibes', cursive"
+              fontSize={5.5}
+              fontWeight={700}
+              style={{
+                letterSpacing: '0.03em',
+              }}
+            >
+              {config.brandText || 'Junia Design'}
+            </text>
+          );
+        })()}
       </g>
 
       {/* Page number (small, bottom right) */}

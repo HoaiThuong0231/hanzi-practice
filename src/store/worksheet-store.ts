@@ -94,6 +94,10 @@ interface WorksheetState {
   setVerticalColWidth: (width: number) => void;
   setRowGapMm: (gap: number) => void;
   setColumnGapMm: (gap: number) => void;
+  setShowOuterBorder: (show: boolean) => void;
+  setOuterBorderWidth: (width: number) => void;
+  setShowBrandText: (show: boolean) => void;
+  setBrandText: (text: string) => void;
 
   // Actions — UI
   setCurrentPage: (page: number) => void;
@@ -327,6 +331,10 @@ export const useWorksheetStore = create<WorksheetState>()(
       setVerticalColWidth: (width) => set((s) => updateConfigAndLayout(s, { verticalColWidth: Math.max(8, Math.min(35, width)) })),
       setRowGapMm: (gap) => set((s) => updateConfigAndLayout(s, { rowGapMm: Math.max(0, Math.min(15, gap)) })),
       setColumnGapMm: (gap) => set((s) => updateConfigAndLayout(s, { columnGapMm: Math.max(0, Math.min(15, gap)) })),
+      setShowOuterBorder: (show) => set((s) => updateConfigAndLayout(s, { showOuterBorder: show })),
+      setOuterBorderWidth: (width) => set((s) => updateConfigAndLayout(s, { outerBorderWidth: width })),
+      setShowBrandText: (show) => set((s) => updateConfigAndLayout(s, { showBrandText: show })),
+      setBrandText: (text) => set((s) => updateConfigAndLayout(s, { brandText: text })),
 
       // UI setters
       setCurrentPage: (page) => set({ currentPage: page }),
@@ -393,6 +401,24 @@ export const useWorksheetStore = create<WorksheetState>()(
           }
           if (state.config.gridLineWidth === 0.35 || !state.config.gridLineWidth) {
             state.config.gridLineWidth = 0.18;
+            updated = true;
+          }
+          // Set fixed 10mm (1.0cm) default margins
+          const m = state.config.margins;
+          if (!m || m.top !== 10 || m.right !== 10 || m.bottom !== 10 || m.left !== 10) {
+            state.config.margins = { top: 10, right: 10, bottom: 10, left: 10 };
+            updated = true;
+          }
+          if (state.config.showOuterBorder === undefined) {
+            state.config.showOuterBorder = true;
+            updated = true;
+          }
+          if (state.config.showBrandText === undefined) {
+            state.config.showBrandText = true;
+            updated = true;
+          }
+          if (!state.config.brandText) {
+            state.config.brandText = 'Junia Design';
             updated = true;
           }
           if (updated) {

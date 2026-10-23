@@ -137,10 +137,10 @@ export interface Margins {
 }
 
 export const DEFAULT_MARGINS: Margins = {
-  top: 15,
-  right: 15,
-  bottom: 15,
-  left: 15,
+  top: 10,
+  right: 10,
+  bottom: 10,
+  left: 10,
 };
 
 // ============================================================
@@ -210,6 +210,12 @@ export interface WorksheetConfig {
   headerFontBold?: boolean; // default true
   headerFontItalic?: boolean; // default false
   headerFontUnderline?: boolean; // default false
+
+  // Border & Brand watermark
+  showOuterBorder?: boolean; // default true (bold ~2px border around grid)
+  outerBorderWidth?: number; // mm (default 0.55 mm ~ 2px)
+  showBrandText?: boolean; // default true (artistic brand watermark at top right)
+  brandText?: string; // default 'Junia Design'
 }
 
 export type HeaderTitleMode = 'repeat' | 'empty' | 'custom';
@@ -581,6 +587,11 @@ export const DEFAULT_CONFIG: WorksheetConfig = {
   headerFontBold: true,
   headerFontItalic: false,
   headerFontUnderline: false,
+
+  showOuterBorder: true,
+  outerBorderWidth: 0.55,
+  showBrandText: true,
+  brandText: 'Junia Design',
 };
 
 // ============================================================
@@ -653,7 +664,7 @@ export const BREAKPOINTS = {
 // ============================================================
 // Bottom Sheet Tabs
 // ============================================================
-export type BottomSheetTab = 'content' | 'practice' | 'grid' | 'font' | 'page';
+export type BottomSheetTab = 'preview' | 'content' | 'grid' | 'settings' | 'practice' | 'font' | 'page';
 
 export interface BottomSheetTabInfo {
   id: BottomSheetTab;
@@ -662,9 +673,8 @@ export interface BottomSheetTabInfo {
 }
 
 export const BOTTOM_SHEET_TABS: BottomSheetTabInfo[] = [
-  { id: 'content', label: 'Nội dung', icon: '' },
-  { id: 'practice', label: 'Kiểu luyện', icon: '' },
-  { id: 'grid', label: 'Kiểu ô', icon: '' },
-  { id: 'font', label: 'Phông chữ', icon: '' },
-  { id: 'page', label: 'Trang giấy', icon: '' },
+  { id: 'preview', label: 'Xem trước', icon: 'preview' },
+  { id: 'content', label: 'Nhập chữ', icon: 'content' },
+  { id: 'grid', label: 'Kiểu ô', icon: 'grid' },
+  { id: 'settings', label: 'Cài đặt', icon: 'settings' },
 ];

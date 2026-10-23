@@ -10,7 +10,10 @@ import { useWorksheetStore } from '../../store/worksheet-store';
 import { ALL_214_RADICALS, ALL_BASIC_STROKES } from '../../data/cjk-radicals';
 import {
   FILL_STYLES,
+  PAPER_SIZES,
+  FONT_OPTIONS,
   type FillStyle,
+  type Margins,
 } from '../../types';
 
 
@@ -1280,6 +1283,61 @@ const QuickSettings: React.FC<QuickSettingsProps> = ({ onOpenTemplates }) => {
       )}
 
 
+      {/* Paper Size */}
+      <div style={sectionStyle}>
+        <label style={labelStyle}>Khổ giấy in</label>
+        <select
+          value={config.paperSize.name}
+          onChange={(e) => {
+            const paper = PAPER_SIZES.find((p) => p.name === e.target.value);
+            if (paper) store.setPaperSize(paper);
+          }}
+          style={selectStyle}
+          aria-label="Chọn khổ giấy in"
+        >
+          {PAPER_SIZES.map((p) => (
+            <option key={p.name} value={p.name}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Font Family */}
+      <div style={sectionStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <label style={labelStyle}>Phông chữ Tiếng Trung</label>
+          {onOpenTemplates && (
+            <button
+              onClick={onOpenTemplates}
+              style={{
+                fontSize: '11.5px',
+                color: 'var(--color-primary)',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                padding: '2px 4px',
+              }}
+            >
+              Thư viện font ↗
+            </button>
+          )}
+        </div>
+        <select
+          value={config.fontFamily}
+          onChange={(e) => store.setFontFamily(e.target.value)}
+          style={selectStyle}
+          aria-label="Chọn phông chữ"
+        >
+          {FONT_OPTIONS.map((f) => (
+            <option key={f.id} value={f.fontFamily}>
+              {f.name}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {/* Orientation */}
       <div style={sectionStyle}>
         <label style={labelStyle}>Hướng giấy</label>
@@ -1308,6 +1366,125 @@ const QuickSettings: React.FC<QuickSettingsProps> = ({ onOpenTemplates }) => {
         </div>
       </div>
 
+      {/* Outer Border & Branding (Khung viền đậm 2px & Junia Design) */}
+      <div style={{ ...sectionStyle, borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
+        <label style={labelStyle}>Khung viền & Thương hiệu</label>
+
+        {/* Toggle Viền đậm bao quanh */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
+              Viền đậm bao quanh (~2px)
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+              Đường viền theo màu họa tiết bao quanh giấy
+            </div>
+          </div>
+          <label style={{ position: 'relative', width: '44px', height: '24px', cursor: 'pointer', flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={config.showOuterBorder !== false}
+              onChange={(e) => store.setShowOuterBorder(e.target.checked)}
+              style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+              aria-label="Bật viền đậm bao quanh"
+            />
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '9999px',
+                backgroundColor: config.showOuterBorder !== false ? 'var(--color-primary)' : '#cbd5e1',
+                transition: 'background-color var(--transition-fast)',
+              }}
+            >
+              <div
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  backgroundColor: 'white',
+                  position: 'absolute',
+                  top: '3px',
+                  left: config.showOuterBorder !== false ? '23px' : '3px',
+                  transition: 'left var(--transition-fast)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }}
+              />
+            </div>
+          </label>
+        </div>
+
+        {/* Toggle Chữ thương hiệu góc trên */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text)' }}>
+              Chữ thương hiệu (Góc trên phải)
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)' }}>
+              Font chữ nghệ thuật bay bướm
+            </div>
+          </div>
+          <label style={{ position: 'relative', width: '44px', height: '24px', cursor: 'pointer', flexShrink: 0 }}>
+            <input
+              type="checkbox"
+              checked={config.showBrandText !== false}
+              onChange={(e) => store.setShowBrandText(e.target.checked)}
+              style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+              aria-label="Bật chữ thương hiệu"
+            />
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '9999px',
+                backgroundColor: config.showBrandText !== false ? 'var(--color-primary)' : '#cbd5e1',
+                transition: 'background-color var(--transition-fast)',
+              }}
+            >
+              <div
+                style={{
+                  width: '18px',
+                  height: '18px',
+                  borderRadius: '50%',
+                  backgroundColor: 'white',
+                  position: 'absolute',
+                  top: '3px',
+                  left: config.showBrandText !== false ? '23px' : '3px',
+                  transition: 'left var(--transition-fast)',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                }}
+              />
+            </div>
+          </label>
+        </div>
+
+        {/* Input tùy chỉnh chữ thương hiệu */}
+        {config.showBrandText !== false && (
+          <div style={{ marginTop: '4px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary)', display: 'block', marginBottom: '4px' }}>
+              Nội dung chữ:
+            </span>
+            <input
+              type="text"
+              value={config.brandText || ''}
+              onChange={(e) => store.setBrandText(e.target.value)}
+              placeholder="Junia Design"
+              style={{
+                width: '100%',
+                padding: '6px 10px',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '13px',
+                fontFamily: "'Dancing Script', 'Great Vibes', cursive, sans-serif",
+                fontWeight: 600,
+                color: config.gridLineColor,
+                backgroundColor: 'var(--color-bg-elevated)',
+                outline: 'none',
+              }}
+            />
+          </div>
+        )}
+      </div>
 
     </div>
   );

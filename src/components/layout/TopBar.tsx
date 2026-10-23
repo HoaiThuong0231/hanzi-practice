@@ -154,85 +154,168 @@ const TopBar: React.FC<TopBarProps> = ({ onExportPdf, onPrint, exporting }) => {
         boxShadow: 'var(--shadow-sm)',
       }}
     >
-      {/* Left: Hamburger + Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', flexShrink: 0 }}>
-        <button
-          onClick={handleToggleSidebar}
-          aria-label={sidebarOpen ? 'Ẩn thanh bên' : 'Hiện thanh bên'}
-          aria-expanded={sidebarOpen}
-          style={{
-            width: '36px',
-            height: '36px',
-            border: 'none',
-            background: 'transparent',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            borderRadius: 'var(--radius-md)',
-            color: 'var(--color-text)',
-            transition: 'background-color var(--transition-fast)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'transparent';
-          }}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
+      {/* Left: Hamburger (Desktop/Tablet only) + Logo/Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+        {!isMobile && (
+          <button
+            onClick={handleToggleSidebar}
+            aria-label={sidebarOpen ? 'Ẩn thanh bên' : 'Hiện thanh bên'}
+            aria-expanded={sidebarOpen}
+            style={{
+              width: '36px',
+              height: '36px',
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: 'var(--radius-md)',
+              color: 'var(--color-text)',
+              transition: 'background-color var(--transition-fast)',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = 'var(--color-bg-secondary)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="4" y1="12" x2="20" y2="12" />
-            <line x1="4" y1="18" x2="20" y2="18" />
-          </svg>
-        </button>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+          </button>
+        )}
 
-        <h1
-          style={{
-            fontSize: isCompact ? 'var(--text-sm)' : 'var(--text-base)',
-            fontWeight: 700,
-            color: 'var(--color-text)',
-            whiteSpace: 'nowrap',
-            margin: 0,
-            letterSpacing: '-0.01em',
-          }}
-        >
-          Hanzi Practice
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '26px',
+              height: '26px',
+              borderRadius: '6px',
+              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              color: 'white',
+              fontWeight: 800,
+              fontSize: '13px',
+              boxShadow: '0 2px 4px rgba(37, 99, 235, 0.25)',
+            }}
+          >
+            汉
+          </span>
+          <h1
+            style={{
+              fontSize: isMobile ? '15px' : isCompact ? 'var(--text-sm)' : 'var(--text-base)',
+              fontWeight: 700,
+              color: 'var(--color-text)',
+              whiteSpace: 'nowrap',
+              margin: 0,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Hanzi Practice
+          </h1>
+        </div>
       </div>
 
-      {/* Center & Right: Controls Toolbar + Print/PDF on the same horizontal row */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          overflowX: 'auto',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          flex: 1,
-          justifyContent: 'flex-end',
-          minWidth: 0,
-          padding: '2px 0',
-        }}
-      >
-        {/* Khổ giấy dropdown */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }} title="Khổ giấy in">
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
-            Khổ:
-          </span>
-          <select
-            value={config.paperSize.name}
+      {/* Right controls: Minimalist for Mobile, Full Toolbar for Desktop/Tablet */}
+      {isMobile ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          <button
+            onClick={onPrint}
+            aria-label="In tài liệu"
+            title="In tài liệu"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              height: '32px',
+              padding: '0 10px',
+              border: '1px solid var(--color-border)',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: 'var(--color-bg-elevated)',
+              color: 'var(--color-text)',
+              cursor: 'pointer',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="6 9 6 2 18 2 18 9" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect x="6" y="14" width="12" height="8" />
+            </svg>
+            In
+          </button>
+
+          <button
+            onClick={onExportPdf}
+            disabled={exporting}
+            aria-label="Xuất PDF"
+            title="Tải file PDF"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '5px',
+              height: '32px',
+              padding: '0 12px',
+              border: 'none',
+              borderRadius: 'var(--radius-md)',
+              backgroundColor: exporting ? '#94a3b8' : 'var(--color-primary)',
+              color: 'var(--color-text-inverse)',
+              cursor: exporting ? 'not-allowed' : 'pointer',
+              fontSize: '12.5px',
+              fontWeight: 600,
+              whiteSpace: 'nowrap',
+              boxShadow: '0 2px 5px rgba(37, 99, 235, 0.3)',
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            {exporting ? 'Đang xuất...' : 'Xuất PDF'}
+          </button>
+        </div>
+      ) : (
+        /* Center & Right: Controls Toolbar + Print/PDF on the same horizontal row for Desktop/Tablet */
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            flex: 1,
+            justifyContent: 'flex-end',
+            minWidth: 0,
+            padding: '2px 0',
+          }}
+        >
+          {/* Khổ giấy dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }} title="Khổ giấy in">
+            <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-secondary)', whiteSpace: 'nowrap' }}>
+              Khổ:
+            </span>
+            <select
+              value={config.paperSize.name}
             onChange={(e) => {
               const paper = PAPER_SIZES.find((p) => p.name === e.target.value);
               if (paper) store.setPaperSize(paper);
@@ -470,6 +553,7 @@ const TopBar: React.FC<TopBarProps> = ({ onExportPdf, onPrint, exporting }) => {
           {exporting ? 'Đang xuất...' : (isCompact ? 'PDF' : 'Xuất PDF')}
         </button>
       </div>
+    )}
     </header>
   );
 };

@@ -2,8 +2,9 @@
  * AppShell Component
  * 
  * The main responsive layout container.
- * Adapts between 3-column (desktop), 2-column (laptop), and 1-column (tablet) layouts.
- * Manages sidebar visibility, bottom bar, and bottom sheet.
+ * - Desktop/Laptop: 2-column layout (sidebar + preview), max-width constrained
+ * - Tablet: Full-width preview with slide-out drawer sidebar + bottom bar/sheet
+ * - Mobile: Ultra-minimalist! Full-screen preview + clean bottom navigation & sheet
  */
 
 import React, { useState } from 'react';
@@ -31,14 +32,10 @@ const AppShell: React.FC<AppShellProps> = ({ onExportPdf, onPrint, exporting }) 
   const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
 
   const isCompact = isTablet || isMobile;
-  const showThreeColumns = isDesktop && sidebarOpen;
-  const showSidebar = !isCompact;
 
   // Close sidebar overlay on tablet
   const handleOverlayClick = () => {
-    if (isCompact) {
-      setSidebarOpen(false);
-    }
+    setSidebarOpen(false);
   };
 
   return (
@@ -53,8 +50,8 @@ const AppShell: React.FC<AppShellProps> = ({ onExportPdf, onPrint, exporting }) 
 
       {/* Main Content Area */}
       <div className={styles.mainContent}>
-        {/* Sidebar Overlay (tablet) */}
-        {isCompact && (
+        {/* Sidebar Overlay (Tablet only) */}
+        {isTablet && (
           <div
             className={`${styles.sidebarOverlay} ${sidebarOpen ? styles.sidebarOverlayVisible : ''}`}
             onClick={handleOverlayClick}
@@ -62,83 +59,55 @@ const AppShell: React.FC<AppShellProps> = ({ onExportPdf, onPrint, exporting }) 
           />
         )}
 
-        {/* Left Sidebar */}
-        <aside
-          className={`${styles.sidebar} ${
-            isCompact
-              ? sidebarOpen
-                ? styles.sidebarVisible
-                : ''
-              : sidebarOpen
-                ? ''
-                : styles.sidebarCollapsed
-          }`}
-          aria-label="Cài đặt phiếu luyện viết"
-        >
-          <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--space-6)',
-            width: isLaptop ? '260px' : '280px',
-            minWidth: isLaptop ? '260px' : '280px',
-          }}>
-            {/* Section: Content Input */}
-            <section>
-              <CharacterInput />
-            </section>
-
-            {/* Section: Grid Type */}
-            <section>
-              <GridTypeSelector />
-            </section>
-
-            {/* Section: Quick Settings (on laptop, includes all settings) */}
-            {(isLaptop || isDesktop || isCompact) && (
+        {/* Left Sidebar — rendered on Desktop, Laptop, and Tablet drawer (NOT on Mobile) */}
+        {!isMobile && (
+          <aside
+            className={`${styles.sidebar} ${
+              isTablet
+                ? sidebarOpen
+                  ? styles.sidebarVisible
+                  : ''
+                : sidebarOpen
+                  ? ''
+                  : styles.sidebarCollapsed
+            }`}
+            aria-label="Cài đặt phiếu luyện viết"
+          >
+            <div className={styles.sidebarInner}>
+              {/* Section: Content Input */}
               <section>
-                <h3 style={{
-                  fontSize: 'var(--text-sm)',
-                  fontWeight: 700,
-                  color: 'var(--color-text)',
-                  marginBottom: 'var(--space-3)',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}>
-                  Cài đặt nhanh
+                <CharacterInput />
+              </section>
+
+              {/* Section: Grid Type */}
+              <section>
+                <GridTypeSelector />
+              </section>
+
+              {/* Section: Quick Settings */}
+              <section>
+                <h3 className={styles.sectionTitle}>
+                  Cài đặt
                 </h3>
                 <QuickSettings onOpenTemplates={() => setIsTemplateModalOpen(true)} />
               </section>
-            )}
-          </div>
-        </aside>
+            </div>
+          </aside>
+        )}
 
-        {/* Center: Preview */}
+        {/* Center: Preview (Full width on mobile) */}
         <main className={styles.previewColumn}>
           <PreviewArea />
         </main>
-
-        {/* Right Settings Panel (Desktop 3-column only) */}
-        {showThreeColumns && (
-          <aside className={styles.settingsPanel} aria-label="Cài đặt chi tiết">
-            <h3 style={{
-              fontSize: 'var(--text-sm)',
-              fontWeight: 700,
-              color: 'var(--color-text)',
-              marginBottom: 'var(--space-4)',
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-            }}>
-              Cài đặt chi tiết
-            </h3>
-            <QuickSettings onOpenTemplates={() => setIsTemplateModalOpen(true)} />
-          </aside>
-        )}
       </div>
 
       {/* Bottom Bar (Tablet/Mobile only) */}
       {isCompact && <BottomBar />}
 
       {/* Bottom Sheet (Tablet/Mobile only) */}
-      {isCompact && <BottomSheet />}
+      {isCompact && (
+        <BottomSheet onOpenTemplates={() => setIsTemplateModalOpen(true)} />
+      )}
 
       {/* Template & Font Gallery Modal */}
       <TemplateGalleryModal

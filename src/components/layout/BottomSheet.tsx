@@ -1,14 +1,12 @@
 /**
- * BottomSheet Component (Tablet only)
+ * BottomSheet Component (Mobile & Tablet)
  * 
- * Slide-up panel for tablet settings.
+ * Sleek, native-feeling slide-up panel for editing and settings.
  * Features:
- * - Tap outside to dismiss
- * - "Xong" (Done) button
- * - Smooth animation
- * - Backdrop overlay
- * - Max height 70vh
- * - Scrollable content
+ * - Smooth CSS transitions
+ * - Drag handle & header with title and close button
+ * - Backdrop overlay dismiss
+ * - Touch-friendly scrolling
  */
 
 import React, { useEffect, useRef, useCallback } from 'react';
@@ -17,7 +15,11 @@ import CharacterInput from '../editor/CharacterInput';
 import GridTypeSelector from '../editor/GridTypeSelector';
 import QuickSettings from '../editor/QuickSettings';
 
-const BottomSheet: React.FC = () => {
+interface BottomSheetProps {
+  onOpenTemplates?: () => void;
+}
+
+const BottomSheet: React.FC<BottomSheetProps> = ({ onOpenTemplates }) => {
   const { bottomSheetOpen, activeBottomTab, setBottomSheetOpen, setActiveBottomTab } =
     useWorksheetStore();
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -38,15 +40,20 @@ const BottomSheet: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [bottomSheetOpen, handleClose]);
 
-  // Get tab title
+  // Tab titles
   const getTitle = () => {
     switch (activeBottomTab) {
-      case 'content': return 'Nội dung';
-      case 'practice': return 'Kiểu luyện';
-      case 'grid': return 'Kiểu ô';
-      case 'font': return 'Chữ & Cài đặt';
-      case 'page': return 'Trang';
-      default: return '';
+      case 'content':
+        return 'Nhập chữ & Nội dung';
+      case 'grid':
+        return 'Kiểu ô luyện viết';
+      case 'settings':
+      case 'practice':
+      case 'font':
+      case 'page':
+        return 'Cài đặt phiếu viết';
+      default:
+        return 'Cài đặt';
     }
   };
 
@@ -57,14 +64,18 @@ const BottomSheet: React.FC = () => {
         return <CharacterInput />;
       case 'grid':
         return <GridTypeSelector />;
+      case 'settings':
       case 'practice':
       case 'font':
       case 'page':
-        return <QuickSettings />;
       default:
-        return null;
+        return <QuickSettings onOpenTemplates={onOpenTemplates} />;
     }
   };
+
+  if (!bottomSheetOpen && !activeBottomTab) {
+    return null;
+  }
 
   return (
     <>
@@ -75,11 +86,13 @@ const BottomSheet: React.FC = () => {
         style={{
           position: 'fixed',
           inset: 0,
-          backgroundColor: 'var(--color-bg-overlay)',
+          backgroundColor: 'rgba(15, 23, 42, 0.45)',
+          backdropFilter: 'blur(3px)',
+          WebkitBackdropFilter: 'blur(3px)',
           zIndex: 'var(--z-overlay)',
           opacity: bottomSheetOpen ? 1 : 0,
           pointerEvents: bottomSheetOpen ? 'auto' : 'none',
-          transition: 'opacity var(--transition-base)',
+          transition: 'opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
         aria-hidden={!bottomSheetOpen}
       />
@@ -95,75 +108,98 @@ const BottomSheet: React.FC = () => {
           bottom: 0,
           left: 0,
           right: 0,
-          maxHeight: '70vh',
-          backgroundColor: 'var(--color-bg-elevated)',
-          borderTopLeftRadius: 'var(--radius-xl)',
-          borderTopRightRadius: 'var(--radius-xl)',
-          boxShadow: 'var(--shadow-xl)',
+          maxHeight: '82vh',
+          backgroundColor: '#ffffff',
+          borderTopLeftRadius: '20px',
+          borderTopRightRadius: '20px',
+          boxShadow: '0 -10px 30px rgba(0, 0, 0, 0.15)',
           zIndex: 'var(--z-bottomsheet)',
           transform: bottomSheetOpen ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform var(--transition-base)',
+          transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           display: 'flex',
           flexDirection: 'column',
           paddingBottom: 'calc(var(--bottombar-height) + env(safe-area-inset-bottom, 0px))',
+          overflow: 'hidden',
         }}
       >
         {/* Drag handle */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          padding: 'var(--space-3) 0 var(--space-1)',
-        }}>
-          <div style={{
-            width: '36px',
-            height: '4px',
-            borderRadius: 'var(--radius-full)',
-            backgroundColor: 'var(--color-border)',
-          }} />
+        <div
+          onClick={handleClose}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '10px 0 6px',
+            cursor: 'pointer',
+          }}
+        >
+          <div
+            style={{
+              width: '40px',
+              height: '4.5px',
+              borderRadius: '9999px',
+              backgroundColor: '#cbd5e1',
+            }}
+          />
         </div>
 
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '0 var(--space-5) var(--space-3)',
-          borderBottom: '1px solid var(--color-border)',
-        }}>
-          <h2 style={{
-            fontSize: 'var(--text-lg)',
-            fontWeight: 700,
-            color: 'var(--color-text)',
-            margin: 0,
-          }}>
-            {getTitle()}
-          </h2>
-          <button
-            onClick={handleClose}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '4px 18px 12px',
+            borderBottom: '1px solid var(--color-border)',
+          }}
+        >
+          <h2
             style={{
-              padding: 'var(--space-2) var(--space-4)',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-primary)',
-              color: 'var(--color-text-inverse)',
-              fontSize: 'var(--text-sm)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              minHeight: '36px',
-              transition: 'background-color var(--transition-fast)',
+              fontSize: '16px',
+              fontWeight: 700,
+              color: 'var(--color-text)',
+              margin: 0,
+              letterSpacing: '-0.01em',
             }}
           >
-            Xong
+            {getTitle()}
+          </h2>
+
+          <button
+            onClick={handleClose}
+            aria-label="Đóng và xem kết quả"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '6px 14px',
+              border: 'none',
+              borderRadius: '20px',
+              backgroundColor: 'var(--color-primary)',
+              color: '#ffffff',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              minHeight: '32px',
+              boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)',
+              transition: 'background-color 0.15s ease',
+            }}
+          >
+            <span>✓</span>
+            <span>Xem kết quả</span>
           </button>
         </div>
 
-        {/* Content */}
-        <div style={{
-          flex: 1,
-          overflow: 'auto',
-          padding: 'var(--space-4) var(--space-5)',
-          overscrollBehavior: 'contain',
-        }}>
+        {/* Scrollable Content */}
+        <div
+          style={{
+            flex: 1,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            WebkitOverflowScrolling: 'touch',
+            padding: '16px 18px 24px',
+          }}
+        >
           {renderContent()}
         </div>
       </div>

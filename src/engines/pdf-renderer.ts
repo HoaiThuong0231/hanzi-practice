@@ -10,7 +10,7 @@ import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { WorksheetConfig, LayoutResult } from '../types';
 import { FILL_STYLES, getPageTitle } from '../types';
-import { isChinesePunctuation } from './layout-engine';
+import { isChinesePunctuation, calculateOuterFrameBounds } from './layout-engine';
 import { getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG, preloadStrokeDataForChars } from './stroke-engine';
 import { generatePinyinBoxSVG } from './grid-engine';
 
@@ -65,6 +65,13 @@ function createPageSVG(
   const { paperWidth, paperHeight, gridSizeMm } = layout;
   const { margins } = config;
 
+  const { borderX, borderY, borderWidth, borderHeight, gridOffsetX } = calculateOuterFrameBounds(
+    page,
+    config,
+    layout,
+    1.2
+  );
+
   const ns = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('xmlns', ns);
@@ -88,9 +95,11 @@ function createPageSVG(
 
     const pageTitle = getPageTitle(config, pageIndex);
 
+    const hasMetaFields = !!(config.headerShowName || config.headerShowClass || config.headerShowDate);
+
     if (pageTitle) {
       const titleFontSize = config.headerFontSize ?? 4.5;
-      const titleY = Math.max(4.5, Math.min(7.5, 6 - (titleFontSize - 4.5) * 0.15));
+      const titleY = hasMetaFields ? 5.5 : 7.0;
       const titleColor = config.headerFontColor || '#1e293b';
       const rawTitleFontFamily = config.headerFontFamily || '';
       const asciiTitleFont = rawTitleFontFamily.replace(/[^\x00-\x7F]/g, '').replace(/,\s*,/g, ',').trim();
@@ -118,8 +127,9 @@ function createPageSVG(
     }
 
     // Name/Class/Date fields
-    const fieldsGroup = document.createElementNS(ns, 'g');
-    fieldsGroup.setAttribute('transform', 'translate(0, 12)');
+    if (hasMetaFields) {
+      const fieldsGroup = document.createElementNS(ns, 'g');
+      fieldsGroup.setAttribute('transform', 'translate(0, 13.0)');
 
     if (config.headerShowName) {
       const label = document.createElementNS(ns, 'text');
@@ -181,7 +191,9 @@ function createPageSVG(
       fieldsGroup.appendChild(line);
     }
 
-    headerGroup.appendChild(fieldsGroup);
+      headerGroup.appendChild(fieldsGroup);
+    }
+
     svg.appendChild(headerGroup);
   }
 
@@ -344,6 +356,12 @@ function createPageSVG(
   }
 
   // Render rows
+  const rowTarget = document.createElementNS(ns, 'g');
+  if (gridOffsetX > 0) {
+    rowTarget.setAttribute('transform', `translate(${gridOffsetX}, 0)`);
+  }
+  contentGroup.appendChild(rowTarget);
+
   for (const row of page.rows) {
     // 214 Radical / Character Structure Block Header & Metadata in PDF (chỉ khi chọn chế độ radical)
     if (row.isRadicalBlock && config.practiceMode === 'radical') {
@@ -357,7 +375,7 @@ function createPageSVG(
         txt.setAttribute('fill', '#334155');
         txt.setAttribute('font-weight', '500');
         txt.textContent = row.pinyin;
-        contentGroup.appendChild(txt);
+        rowTarget.appendChild(txt);
       }
 
       // Stroke count header text
@@ -370,7 +388,7 @@ function createPageSVG(
       countTxt.setAttribute('fill', '#475569');
       countTxt.setAttribute('font-weight', '600');
       countTxt.textContent = `${row.strokeCount || 8}画 (${row.strokeCount || 8} nét)`;
-      contentGroup.appendChild(countTxt);
+      rowTarget.appendChild(countTxt);
 
       // Radical & Structure Meta below Last Row Col 0
       const rowCount = row.blockRowCount || 2;
@@ -383,7 +401,7 @@ function createPageSVG(
         radTxt.setAttribute('font-size', '2.5');
         radTxt.setAttribute('fill', '#475569');
         radTxt.textContent = `部首: ${row.radical}`;
-        contentGroup.appendChild(radTxt);
+        rowTarget.appendChild(radTxt);
       }
       if (row.structure) {
         const structTxt = document.createElementNS(ns, 'text');
@@ -394,7 +412,7 @@ function createPageSVG(
         structTxt.setAttribute('font-size', '2.5');
         structTxt.setAttribute('fill', '#64748b');
         structTxt.textContent = `${row.structure.zh} (${row.structure.vi})`;
-        contentGroup.appendChild(structTxt);
+        rowTarget.appendChild(structTxt);
       }
     }
 
@@ -432,7 +450,7 @@ function createPageSVG(
               txt.setAttribute('fill', config.fontColor || '#1e293b');
               txt.setAttribute('font-weight', 'normal');
               txt.textContent = cell.pinyin || '';
-              contentGroup.appendChild(txt);
+              rowTarget.appendChild(txt);
             }
           }
         }
@@ -451,7 +469,7 @@ function createPageSVG(
               txt.setAttribute('fill', config.fontColor || '#1e293b');
               txt.setAttribute('font-weight', 'normal');
               txt.textContent = cell.pinyin || '';
-              contentGroup.appendChild(txt);
+              rowTarget.appendChild(txt);
             }
           }
         }
@@ -467,7 +485,7 @@ function createPageSVG(
       line.setAttribute('y2', String(row.y + row.rowHeight));
       line.setAttribute('stroke', config.gridLineColor);
       line.setAttribute('stroke-width', String(config.gridLineWidth));
-      contentGroup.appendChild(line);
+      rowTarget.appendChild(line);
     }
 
     // Grid cells + characters
@@ -499,7 +517,7 @@ function createPageSVG(
           pyTxt.textContent = cell.pinyin || '';
           pinyinHeaderGroup.appendChild(pyTxt);
         }
-        contentGroup.appendChild(pinyinHeaderGroup);
+        rowTarget.appendChild(pinyinHeaderGroup);
       }
 
       const cellGroup = document.createElementNS(ns, 'g');
@@ -684,11 +702,50 @@ function createPageSVG(
         cellGroup.appendChild(txt);
       }
 
-      contentGroup.appendChild(cellGroup);
+      rowTarget.appendChild(cellGroup);
     }
   }
 
   svg.appendChild(contentGroup);
+
+  // Outer Border & Brand Watermark ("Junia Design")
+  if (config.showOuterBorder !== false || config.showBrandText !== false) {
+    const brandGroup = document.createElementNS(ns, 'g');
+    brandGroup.setAttribute('transform', `translate(${margins.left}, ${margins.top})`);
+
+    if (config.showOuterBorder !== false) {
+      const borderRect = document.createElementNS(ns, 'rect');
+      borderRect.setAttribute('x', String(borderX));
+      borderRect.setAttribute('y', String(borderY));
+      borderRect.setAttribute('width', String(borderWidth));
+      borderRect.setAttribute('height', String(borderHeight));
+      borderRect.setAttribute('fill', 'none');
+      borderRect.setAttribute('stroke', config.gridLineColor);
+      borderRect.setAttribute('stroke-width', String(config.outerBorderWidth ?? 0.55));
+      brandGroup.appendChild(borderRect);
+    }
+
+    if (config.showBrandText !== false) {
+      const hasMetaFields = !!(config.headerShowName || config.headerShowClass || config.headerShowDate);
+      const brandY = config.showHeader && page.headerHeight > 0
+        ? (hasMetaFields ? 5.5 : 7.0)
+        : (borderY - 3.8);
+
+      const brandTxt = document.createElementNS(ns, 'text');
+      brandTxt.setAttribute('x', String(borderX + borderWidth - 2.0));
+      brandTxt.setAttribute('y', String(brandY));
+      brandTxt.setAttribute('text-anchor', 'end');
+      brandTxt.setAttribute('dominant-baseline', 'alphabetic');
+      brandTxt.setAttribute('font-family', "'Dancing Script', 'Great Vibes', cursive");
+      brandTxt.setAttribute('font-size', '5.5');
+      brandTxt.setAttribute('font-weight', '700');
+      brandTxt.setAttribute('fill', config.gridLineColor);
+      brandTxt.textContent = config.brandText || 'Junia Design';
+      brandGroup.appendChild(brandTxt);
+    }
+
+    svg.appendChild(brandGroup);
+  }
 
   // Page number
   const pageNum = document.createElementNS(ns, 'text');

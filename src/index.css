@@ -114,7 +114,7 @@
   --sidebar-width: 320px;
   --settings-width: 300px;
   --topbar-height: 56px;
-  --bottombar-height: 64px;
+  --bottombar-height: 58px;
 }
 
 /* ============================================================
@@ -245,10 +245,15 @@ select {
     page-break-after: always;
     page-break-inside: avoid;
     margin: 0 !important;
+    padding: 0 !important;
     box-shadow: none !important;
+    width: 100% !important;
+    height: auto !important;
   }
 
   @page {
-    margin: 0;
+    size: auto;
+    margin: 0mm !important;
   }
 }
+

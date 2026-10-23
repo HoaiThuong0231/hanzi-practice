@@ -26,7 +26,8 @@ import { getStrokeCount } from './stroke-engine';
 import { getBasicStroke, ALL_NQEZ_STROKES_TOKENS } from '../data/basic-strokes';
 import { getCharacterRadical, getCharacterStructure, getRadicalFullDetail, getRadicalVariant, getRadicalStrokeCountStatic, ALL_214_RADICALS } from '../data/cjk-radicals';
 
-const HEADER_HEIGHT_MM = 18; // Fixed header area height
+const HEADER_HEIGHT_MM = 20; // Header area height with meta fields (Title + Tên/Lớp/Ngày)
+const HEADER_TITLE_ONLY_HEIGHT_MM = 14; // Header area height for title only
 const PINYIN_ROW_HEIGHT_MM = 3.5; // Compact height above row for pinyin
 const ROW_GAP_MM = 0; // Gap between rows (grid cells are flush)
 
@@ -414,7 +415,10 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
     config.margins
   );
 
-  const headerHeight = config.showHeader ? HEADER_HEIGHT_MM : 0;
+  const hasMetaFields = !!(config.headerShowName || config.headerShowClass || config.headerShowDate);
+  const headerHeight = config.showHeader
+    ? (hasMetaFields ? HEADER_HEIGHT_MM : HEADER_TITLE_ONLY_HEIGHT_MM)
+    : 4;
   const showPinyin = config.showPinyin;
   const pinyinDistance = Math.max(0, config.pinyinDistance ?? 0);
 
@@ -480,13 +484,13 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
     // When pinyin enabled: total row = lineRowHeight * 1.5 (top 0.5 for pinyin, bottom 1.0 for hanzi)
     // When pinyin off: row = lineRowHeight
     columns = 1;
-    const baseH = Math.max(8, Math.min(30, config.lineRowHeight ?? 13));
+    const lineBaseH = Math.max(8, Math.min(30, config.lineRowHeight ?? 13));
     if (showPinyin) {
-      pinyinRowHeight = baseH * 0.5;
-      effectiveRowHeight = baseH + pinyinRowHeight; // = 1.5 * baseH
+      pinyinRowHeight = lineBaseH * 0.5;
+      effectiveRowHeight = lineBaseH + pinyinRowHeight; // = 1.5 * baseH
     } else {
       pinyinRowHeight = 0;
-      effectiveRowHeight = baseH;
+      effectiveRowHeight = lineBaseH;
     }
     gridSize = usableWidth; // one full-width "cell" per row
   } else {
@@ -499,6 +503,29 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
   const availableHeightForRows = usableHeight - headerHeight;
   const effectiveGap = config.rowGapMm ?? 2.5;
   const rowsPerPage = Math.max(1, Math.floor((availableHeightForRows + effectiveGap) / effectiveRowHeight));
+
+  // Determine flexEffectiveRowHeight: distribute remaining height across row gaps so rows reach usableHeight with 0 excess at the bottom
+  const lineBaseH = Math.max(8, Math.min(30, config.lineRowHeight ?? 13));
+  const isFlushGrid = config.gridType === 'oHoi' || (config.rowGapMm !== undefined && config.rowGapMm === 0);
+  const rowContentHeight = config.gridType === 'line'
+    ? (lineBaseH + pinyinRowHeight)
+    : (gridSize + pinyinRowHeight);
+
+  let flexEffectiveRowHeight = effectiveRowHeight;
+  let flushTopOffset = 0;
+
+  if (isFlushGrid) {
+    const totalContentHeight = rowsPerPage * rowContentHeight;
+    const remaining = availableHeightForRows - totalContentHeight;
+    flushTopOffset = remaining > 0 ? (remaining / 2) : 0;
+  } else if (rowsPerPage > 1 && config.fillRemainingPage !== false) {
+    const totalContentHeight = rowsPerPage * rowContentHeight;
+    const remainingForGaps = availableHeightForRows - totalContentHeight;
+    if (remainingForGaps > 0) {
+      const flexRowGap = remainingForGaps / (rowsPerPage - 1);
+      flexEffectiveRowHeight = rowContentHeight + flexRowGap;
+    }
+  }
 
   // Extract characters
   const rawCharacters = extractCharacters(config.characters, config.practiceMode);
@@ -522,7 +549,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
         character: '',
         cells: [],
         y: 0,
-        rowHeight: effectiveRowHeight,
+        rowHeight: flexEffectiveRowHeight,
       };
       for (let col = 0; col < columns; col++) {
         emptyRow.cells.push({
@@ -1583,15 +1610,34 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
       const rawWords = line.split(/\s+/).filter(Boolean);
       let currentRowCells: CellData[] = [];
 
-      for (const word of rawWords) {
+      for (let wIdx = 0; wIdx < rawWords.length; wIdx++) {
+        const word = rawWords[wIdx];
         // Extract CJK characters, punctuation marks, or alphanumeric tokens
         const charsInWord = extractParagraphTokens(word);
         if (charsInWord.length === 0) continue;
 
-        const neededCells = (currentRowCells.length > 0 ? gapCount : 0) + charsInWord.length;
+        const isShortVocabWord = charsInWord.length <= 4 && !charsInWord.some(c => isChinesePunctuation(c));
+        const lastCell = currentRowCells[currentRowCells.length - 1];
+        const prevIsPunct = lastCell ? isChinesePunctuation(lastCell.character) : false;
+        const nextIsPunct = isChinesePunctuation(charsInWord[0]);
 
-        // Wrap to next row if word cannot fit on current row
-        if (currentRowCells.length > 0 && currentRowCells.length + neededCells > columns) {
+        // Gap is only inserted between words if neither side is punctuation and there are already cells on the row
+        const shouldInsertGap = currentRowCells.length > 0 && gapCount > 0 && !prevIsPunct && !nextIsPunct;
+        const actualGap = shouldInsertGap ? gapCount : 0;
+        const remainingOnRow = columns - currentRowCells.length;
+        const neededCells = actualGap + charsInWord.length;
+
+        // Word-wrap: ONLY wrap a word to the next row if:
+        // 1. It is a short vocabulary word (<= 4 chars, no punctuation marks)
+        // 2. It cannot fit in the remaining space of the current row (remainingOnRow < neededCells)
+        // 3. The leftover space on the current row is small (<= 2 cells) so we never leave large blank rows!
+        const shouldWrapWord =
+          isShortVocabWord &&
+          currentRowCells.length > 0 &&
+          remainingOnRow < neededCells &&
+          remainingOnRow <= 2;
+
+        if (shouldWrapWord) {
           while (currentRowCells.length < columns) {
             currentRowCells.push({
               character: '',
@@ -1611,9 +1657,9 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           currentRowCells = [];
         }
 
-        // Insert gap cells between words if current row has cells
-        if (currentRowCells.length > 0 && gapCount > 0) {
-          for (let g = 0; g < gapCount && currentRowCells.length < columns; g++) {
+        // Insert gap cells between words if appropriate
+        if (currentRowCells.length > 0 && shouldInsertGap) {
+          for (let g = 0; g < actualGap && currentRowCells.length < columns; g++) {
             currentRowCells.push({
               character: '',
               type: 'empty',
@@ -1626,7 +1672,33 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
         }
 
         // Add character cells
-        for (const ch of charsInWord) {
+        for (let cIdx = 0; cIdx < charsInWord.length; cIdx++) {
+          const ch = charsInWord[cIdx];
+
+          // Kinsoku Shori (避头尾): If this is the last cell on the row (columns - 1)
+          // and the immediately following character is a closing punctuation mark (e.g. ，。！？),
+          // wrap this character to the next row together with the punctuation so punctuation never starts a row alone.
+          const isLastCellOnRow = currentRowCells.length === columns - 1;
+          const nextCharCannotStart = (cIdx + 1 < charsInWord.length) && CANNOT_START_LINE.has(charsInWord[cIdx + 1]);
+
+          if (isLastCellOnRow && nextCharCannotStart) {
+            currentRowCells.push({
+              character: '',
+              type: 'empty',
+              x: currentRowCells.length * gridSize,
+              y: 0,
+              opacity: 0,
+              fillStyle: 'empty',
+            });
+            allRows.push({
+              character: currentRowCells.find(c => c.character)?.character || '',
+              cells: currentRowCells,
+              y: 0,
+              rowHeight: effectiveRowHeight,
+            });
+            currentRowCells = [];
+          }
+
           if (currentRowCells.length >= columns) {
             allRows.push({
               character: currentRowCells.find(c => c.character)?.character || '',
@@ -1971,7 +2043,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
               fillStyle: 'empty',
             })),
         y: 0,
-        rowHeight: effectiveRowHeight,
+        rowHeight: flexEffectiveRowHeight,
         isLineRow: config.gridType === 'line',
       });
     }
@@ -1999,7 +2071,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
               fillStyle: 'empty',
             })),
         y: 0,
-        rowHeight: effectiveRowHeight,
+        rowHeight: flexEffectiveRowHeight,
         isLineRow: config.gridType === 'line',
       });
     }
@@ -2052,6 +2124,9 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
       i += blockRowsCount;
     }
   } else {
+    const gridStartY = isFlushGrid ? (headerHeight + flushTopOffset) : headerHeight;
+    currentY = gridStartY;
+
     for (const row of allRows) {
       if (currentPageRows.length >= rowsPerPage && currentPageRows.length > 0) {
         // Start new page
@@ -2061,7 +2136,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           headerHeight,
         });
         currentPageRows = [];
-        currentY = headerHeight;
+        currentY = gridStartY;
       }
 
       // Set y positions for cells in this row
@@ -2070,12 +2145,13 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
         ? (currentY + (showPinyin ? pinyinRowHeight : 0))  // hanzi starts after pinyin zone (or at top when no pinyin)
         : (currentY + pinyinRowHeight);
       row.y = currentY;
+      row.rowHeight = flexEffectiveRowHeight;
       row.cells.forEach(cell => {
         cell.y = cellY;
       });
 
       currentPageRows.push(row);
-      currentY += effectiveRowHeight;
+      currentY += flexEffectiveRowHeight;
     }
   }
 
@@ -2106,9 +2182,105 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
     paperWidth,
     paperHeight,
     gridSizeMm: gridSize,
-    rowHeightMm: effectiveRowHeight,
+    rowHeightMm: flexEffectiveRowHeight,
     pinyinRowHeight,
     headerHeight,
     totalCharacters: characters.length,
   };
+}
+
+/**
+ * Calculate the bounding box and horizontal alignment for the outer border
+ * and brand watermark text ("Junia Design").
+ */
+export function calculateOuterFrameBounds(
+  page: PageLayout,
+  config: WorksheetConfig,
+  layout: LayoutResult,
+  paddingMm: number = 1.2
+): {
+  borderX: number;
+  borderY: number;
+  borderWidth: number;
+  borderHeight: number;
+  gridOffsetX: number;
+} {
+  const isLineGrid = config.gridType === 'line';
+  const isVerticalBoxGrid =
+    config.gridType === 'verticalSquare' ||
+    config.gridType === 'verticalTian' ||
+    config.gridType === 'verticalMi' ||
+    config.gridType === 'verticalHui' ||
+    config.gridType === 'verticalOHoi';
+  const isVerticalLine = config.gridType === 'verticalLine';
+  const isBoxWithPinyinHeader = ['tian', 'mi', 'hui', 'oHoi'].includes(config.gridType) && config.showPinyin;
+
+  let borderX = 0;
+  let borderY = 0;
+  let borderWidth = layout.usableWidth;
+  let borderHeight = layout.usableHeight;
+  let gridOffsetX = 0;
+
+  if (isVerticalLine) {
+    const colWidth = config.verticalColWidth ?? 16;
+    const cols = layout.columns;
+    const gridW = cols * colWidth;
+    const startX = (layout.usableWidth - gridW) / 2;
+    const startY = page.headerHeight;
+    const availableH = layout.usableHeight - page.headerHeight;
+    const charStep = colWidth * 1.12;
+    const charsPerCol = Math.max(1, Math.floor(availableH / charStep));
+    const gridH = charsPerCol * charStep;
+    const topY = startY + (availableH - gridH) / 2;
+
+    borderX = startX - paddingMm;
+    borderY = topY - paddingMm;
+    borderWidth = gridW + paddingMm * 2;
+    borderHeight = gridH + paddingMm * 2;
+  } else if (isVerticalBoxGrid) {
+    const colGap = Math.max(0, config.columnGapMm ?? 3.0);
+    const charsPerCol = Math.max(6, Math.min(25, config.verticalRowsPerCol ?? 12));
+    const cellSize = (layout.usableHeight - page.headerHeight) / charsPerCol;
+    const colsPerPage = Math.max(1, Math.floor((layout.usableWidth + colGap) / (cellSize + colGap)));
+    const gridW = colsPerPage * cellSize + (colsPerPage - 1) * colGap;
+    const startX = (layout.usableWidth - gridW) / 2;
+    const charStep = cellSize;
+    const gridH = charsPerCol * charStep;
+    const startY = page.headerHeight;
+    const topY = startY + ((layout.usableHeight - page.headerHeight) - gridH) / 2;
+
+    borderX = startX - paddingMm;
+    borderY = topY - paddingMm;
+    borderWidth = gridW + paddingMm * 2;
+    borderHeight = gridH + paddingMm * 2;
+  } else if (isLineGrid) {
+    const topY = page.rows[0]?.y ?? 0;
+    const lastRow = page.rows[page.rows.length - 1];
+    const bottomY = lastRow ? (lastRow.y + lastRow.rowHeight) : layout.usableHeight;
+
+    borderX = -paddingMm;
+    borderY = topY - paddingMm;
+    borderWidth = layout.usableWidth + paddingMm * 2;
+    borderHeight = (bottomY - topY) + paddingMm * 2;
+  } else {
+    // Horizontal box grids (mi, tian, square, hui, oHoi)
+    const gridW = layout.columns * layout.gridSizeMm;
+    gridOffsetX = Math.max(0, (layout.usableWidth - gridW) / 2);
+
+    const firstRow = page.rows[0];
+    const topY = firstRow?.cells[0]?.y !== undefined
+      ? (isBoxWithPinyinHeader ? firstRow.y : firstRow.cells[0].y)
+      : (firstRow?.y ?? 0);
+    const lastRow = page.rows[page.rows.length - 1];
+    const bottomY = lastRow?.cells[0]?.y !== undefined
+      ? (lastRow.cells[0].y + layout.gridSizeMm)
+      : (lastRow ? lastRow.y + lastRow.rowHeight : layout.usableHeight);
+
+    borderX = gridOffsetX - paddingMm;
+    borderY = topY - paddingMm;
+    borderWidth = gridW + paddingMm * 2;
+    borderHeight = (bottomY - topY) + paddingMm * 2;
+  }
+
+  return { borderX, borderY, borderWidth, borderHeight, gridOffsetX };
 }

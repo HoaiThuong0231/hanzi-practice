@@ -92,6 +92,7 @@ const PageHeaderSettings: React.FC = () => {
           }}
         >
           <input
+            id="toggle-show-header"
             type="checkbox"
             checked={config.showHeader}
             onChange={(e) => store.setShowHeader(e.target.checked)}

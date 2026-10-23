@@ -30,6 +30,14 @@ BASIC_STROKES_LIST.forEach((s) => {
   strokeMap[s.nameVi.toLowerCase()] = s;
   strokeMap[s.pinyin.toLowerCase()] = s;
   strokeMap[s.index.toString()] = s;
+
+  // Add alias without trailing digits if present (e.g. "横折钩1" -> "横折钩")
+  const baseNameZh = s.nameZh.replace(/\d+$/, '');
+  if (baseNameZh && !strokeMap[baseNameZh]) {
+    strokeMap[baseNameZh] = s;
+    strokeMap[`(${baseNameZh})`] = s;
+    strokeMap[`（${baseNameZh}）`] = s;
+  }
 });
 
 // Legacy ID aliases for backwards compatibility

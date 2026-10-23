@@ -65,19 +65,27 @@ function getUsableArea(
 /**
  * Extract unique characters from input string (ignoring whitespace/punctuation)
  */
-function extractCharacters(input: string, practiceMode?: string): string[] {
+export function extractCharacters(input: string, practiceMode?: string): string[] {
   if (!input) return [];
 
-  // Match parenthesized stroke tokens like (短横), (长横) OR CJK characters
-  const nqezRegex = /\([\u4e00-\u9fff]+\)|（[\u4e00-\u9fff]+）|[\u4e00-\u9fff\u3400-\u4dbf\u31c0-\u31ef\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{2ceb0}-\u{2ebef}\u{30000}-\u{3134f}]/gu;
+  if (practiceMode === 'basicStroke') {
+    // 1. Check parenthesized tokens like (短横), （长横）, (横折钩1)...
+    const parenMatches = input.match(/\([^()]+\)|（[^（）]+）/gu);
+    if (parenMatches && parenMatches.length > 0) {
+      return parenMatches;
+    }
+    // 2. Check whitespace or comma separated tokens: "短横 长横", "ngang ngắn, ngang dài"...
+    const splitTokens = input.trim().split(/[\s,;，；、]+/).filter(Boolean);
+    if (splitTokens.length > 0 && splitTokens.some(t => !!getBasicStroke(t))) {
+      return splitTokens;
+    }
+  }
+
+  // Match parenthesized stroke tokens like (短横), (长横), (横折钩1) OR CJK characters
+  const nqezRegex = /\([^()]+\)|（[^（）]+）|[\u4e00-\u9fff\u3400-\u4dbf\u31c0-\u31ef\u{20000}-\u{2a6df}\u{2a700}-\u{2b73f}\u{2b740}-\u{2b81f}\u{2b820}-\u{2ceaf}\u{2ceb0}-\u{2ebef}\u{30000}-\u{3134f}]/gu;
   const nqezMatches = input.match(nqezRegex);
   if (nqezMatches && nqezMatches.length > 0) {
     return nqezMatches;
-  }
-
-  if (practiceMode === 'basicStroke') {
-    const tokens = input.trim().split(/[\s,]+/).filter(Boolean);
-    if (tokens.length > 0) return tokens;
   }
 
   return input.trim().split(/[\s,]+/).filter(Boolean);
@@ -551,10 +559,10 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
   let characters = rawCharacters;
   if (config.practiceMode === 'radical') {
     const hasRadicals = rawCharacters.length > 0 && rawCharacters.some(c => ALL_214_RADICALS.includes(c));
-    characters = hasRadicals ? rawCharacters : ALL_214_RADICALS;
+    characters = hasRadicals ? rawCharacters : (rawCharacters.length > 0 ? rawCharacters : ALL_214_RADICALS);
   } else if (config.practiceMode === 'basicStroke') {
     const hasBasic = rawCharacters.length > 0 && rawCharacters.some(c => !!getBasicStroke(c));
-    characters = hasBasic ? rawCharacters : extractCharacters(ALL_NQEZ_STROKES_TOKENS, 'basicStroke');
+    characters = hasBasic ? rawCharacters : (rawCharacters.length > 0 ? rawCharacters : extractCharacters(ALL_NQEZ_STROKES_TOKENS, 'basicStroke'));
   }
   const totalCellsPerChar = config.sampleCount + config.traceCount + config.emptyCount;
 
@@ -860,25 +868,26 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
 
   } else if (config.practiceMode === 'basicStroke') {
     // Basic Strokes Mode (Luyện nét cơ bản): 1 line per stroke!
-    const effectiveChars = (characters.length > 0 && characters.some(c => !!getBasicStroke(c)))
+    const effectiveChars = characters.length > 0
       ? characters
       : extractCharacters(ALL_NQEZ_STROKES_TOKENS, 'basicStroke');
     for (const rawChar of effectiveChars) {
       const basic = getBasicStroke(rawChar);
       const strokeChar: string = basic ? (basic.nameZh || rawChar) : rawChar;
       const charPinyin = basic
-        ? (showPinyin ? `${basic.pinyin} (${basic.nameVi})` : undefined)
+        ? (showPinyin ? basic.pinyin : undefined)
         : (showPinyin ? getPinyin(strokeChar, config.pinyinWithTone) : undefined);
+      const charNameVi = basic && showPinyin ? basic.nameVi : undefined;
       const charCells: CellData[] = [];
 
-      const sampleCount = Math.max(0, config.sampleCount);
+      const sampleCount = (config.sampleCount === 0 && config.traceCount === 0) ? 1 : Math.max(0, config.sampleCount);
       for (let i = 0; i < sampleCount; i++) {
         charCells.push({
           character: strokeChar,
           type: 'sample',
           x: 0,
           y: 0,
-          pinyin: i === 0 ? charPinyin : undefined,
+          pinyin: i === 0 ? charPinyin : (i === 1 ? charNameVi : undefined),
           opacity: 1.0,
           fillStyle: 'solid',
         });
@@ -928,7 +937,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
         });
         allRows.push({
           character: strokeChar,
-          pinyin: rStart === 0 ? charPinyin : undefined,
+          pinyin: rStart === 0 ? (basic ? `${basic.pinyin} (${basic.nameVi})` : charPinyin) : undefined,
           cells: rowCells,
           y: 0,
           rowHeight: effectiveRowHeight,
@@ -1416,8 +1425,8 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
       const charPinyin = showPinyin ? getPinyin(char, config.pinyinWithTone) : undefined;
       const charCells: CellData[] = [];
 
-      // Sample cells (can be 0 or more)
-      const sampleCount = Math.max(0, config.sampleCount);
+      // Sample cells (can be 0 or more, but if both sampleCount and traceCount are 0, default to 1 sample so characters are never invisible)
+      const sampleCount = (config.sampleCount === 0 && config.traceCount === 0) ? 1 : Math.max(0, config.sampleCount);
       for (let i = 0; i < sampleCount; i++) {
         charCells.push({
           character: char,
@@ -1522,7 +1531,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
       const wordCells: CellData[] = [];
 
       // 1. Sample occurrence(s) of the word
-      const sampleCount = Math.max(0, config.sampleCount);
+      const sampleCount = (config.sampleCount === 0 && config.traceCount === 0) ? 1 : Math.max(0, config.sampleCount);
       for (let s = 0; s < sampleCount; s++) {
         charsInWord.forEach((ch, idx) => {
           wordCells.push({

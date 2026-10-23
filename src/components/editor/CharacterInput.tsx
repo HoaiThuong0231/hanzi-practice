@@ -32,6 +32,13 @@ const CharacterInput: React.FC = () => {
     }, 120);
   }, [setCharacters]);
 
+  const handleBlur = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (localText !== config.characters) {
+      setCharacters(localText);
+    }
+  }, [localText, config.characters, setCharacters]);
+
   // Count CJK characters
   const cjkCount = (config.characters.match(/[\u4e00-\u9fff\u3400-\u4dbf]/g) || []).length;
 
@@ -125,6 +132,7 @@ const CharacterInput: React.FC = () => {
         id="char-input"
         value={localText}
         onChange={handleChange}
+        onBlur={handleBlur}
         placeholder="Nhập chữ Hán, bộ thủ hoặc nét tại đây, ví dụ: 你好&#10;学习中文&#10;春天来了，万物复苏。"
         rows={6}
         style={{

@@ -19,7 +19,7 @@ import type {
   HeaderTitleMode,
 } from '../types';
 import { DEFAULT_CONFIG, PAPER_SIZES } from '../types';
-import { computeLayout } from '../engines/layout-engine';
+import { computeLayout, extractCharacters } from '../engines/layout-engine';
 
 // ============================================================
 // Store Interface
@@ -168,9 +168,49 @@ function updateConfigAndLayout(
     newConfig.headerTitle = MODE_TITLES[newConfig.practiceMode] || 'PHIẾU LUYỆN VIẾT CHỮ HÁN';
   }
 
+  // When user enters/updates characters:
+  if (configUpdate.characters !== undefined) {
+    const trimmed = configUpdate.characters.trim();
+
+    // 1. If blank paper mode was on, typing characters turns it off so characters show up immediately
+    if (trimmed.length > 0 && newConfig.blankPaper) {
+      newConfig.blankPaper = false;
+    }
+
+    // 2. If user is in basicStroke mode but types regular Hanzi (not basic stroke tokens), auto-switch to single mode
+    if (newConfig.practiceMode === 'basicStroke' && trimmed.length > 0) {
+      const extracted = extractCharacters(trimmed, 'basicStroke');
+      const hasBasic = extracted.length > 0 && extracted.some(c => !!getBasicStroke(c));
+      if (!hasBasic && extracted.length > 0) {
+        newConfig.practiceMode = 'single';
+        if (!configUpdate.headerTitle) {
+          newConfig.headerTitle = MODE_TITLES['single'];
+        }
+      }
+    }
+
+    // 3. If user is in radical mode but types regular Hanzi (no radicals), auto-switch to single mode
+    if (newConfig.practiceMode === 'radical' && trimmed.length > 0) {
+      const extracted = extractCharacters(trimmed, 'radical');
+      const hasRadical = extracted.length > 0 && extracted.some(c => ALL_214_RADICALS.includes(c));
+      if (!hasRadical && extracted.length > 0) {
+        newConfig.practiceMode = 'single';
+        if (!configUpdate.headerTitle) {
+          newConfig.headerTitle = MODE_TITLES['single'];
+        }
+      }
+    }
+
+    // 4. If sampleCount is 0 and trace is empty or hidden, typed text wouldn't be visible: auto-enable 1 sample
+    if (trimmed.length > 0 && newConfig.sampleCount === 0 && (newConfig.fillStyle === 'empty' || newConfig.showTrace === false)) {
+      newConfig.sampleCount = 1;
+    }
+  }
+
   // When switching to basicStroke mode, if characters don't contain basic strokes, auto-populate with ALL_NQEZ_STROKES_TOKENS
   if (configUpdate.practiceMode === 'basicStroke') {
-    const hasBasicTokens = newConfig.characters && newConfig.characters.split(/\s+/).some(c => !!getBasicStroke(c));
+    const extracted = extractCharacters(newConfig.characters || '', 'basicStroke');
+    const hasBasicTokens = extracted.length > 0 && extracted.some(c => !!getBasicStroke(c));
     if (!hasBasicTokens) {
       newConfig.characters = ALL_NQEZ_STROKES_TOKENS;
     }
@@ -195,7 +235,6 @@ function updateConfigAndLayout(
     }
   }
 
-
   const newLayout = computeLayout(newConfig);
 
   // Preload stroke data asynchronously for all modes with characters in background, then re-compute layout
@@ -212,7 +251,10 @@ function updateConfigAndLayout(
 
   // Clamp current page
   const maxPage = Math.max(0, newLayout.pages.length - 1);
-  const currentPage = Math.min(state.currentPage, maxPage);
+  let currentPage = Math.min(state.currentPage, maxPage);
+  if (configUpdate.practiceMode || (configUpdate.characters !== undefined && state.currentPage > 0 && newLayout.pages.length === 1)) {
+    currentPage = 0;
+  }
 
   // Push to history (for undo)
   let history = state.history;
@@ -287,9 +329,22 @@ export const useWorksheetStore = create<WorksheetState>()(
       setFontWeight: (weight) => set((s) => updateConfigAndLayout(s, { fontWeight: weight })),
       setFontColor: (color) => set((s) => updateConfigAndLayout(s, { fontColor: color })),
       setFontFamily: (fontFamily) => set((s) => updateConfigAndLayout(s, { fontFamily })),
-      setFillStyle: (style) => set((s) => updateConfigAndLayout(s, { fillStyle: style })),
-      setSampleCount: (count) => set((s) => updateConfigAndLayout(s, { sampleCount: Math.max(0, Math.min(20, count)) })),
-      setTraceCount: (count) => set((s) => updateConfigAndLayout(s, { traceCount: Math.max(0, Math.min(50, count)) })),
+      setSampleCount: (count) => set((s) => {
+        const nextSample = Math.max(0, Math.min(20, count));
+        const update: Partial<WorksheetConfig> = { sampleCount: nextSample };
+        if (nextSample === 0 && s.config.traceCount === 0) {
+          update.traceCount = 1;
+        }
+        return updateConfigAndLayout(s, update);
+      }),
+      setTraceCount: (count) => set((s) => {
+        const nextTrace = Math.max(0, Math.min(50, count));
+        const update: Partial<WorksheetConfig> = { traceCount: nextTrace };
+        if (nextTrace === 0 && s.config.sampleCount === 0) {
+          update.sampleCount = 1;
+        }
+        return updateConfigAndLayout(s, update);
+      }),
       setShowTrace: (show) => set((s) => updateConfigAndLayout(s, { showTrace: show })),
       setEmptyCount: (count) => set((s) => updateConfigAndLayout(s, { emptyCount: Math.max(0, Math.min(50, count)) })),
       setEmptyRows: (rows) => set((s) => updateConfigAndLayout(s, { emptyRows: Math.max(0, Math.min(10, rows)) })),
@@ -416,6 +471,11 @@ export const useWorksheetStore = create<WorksheetState>()(
           }
           if (!state.config.characters && !state.config.blankPaper) {
             state.config.characters = '你好 学习 练习';
+            updated = true;
+          }
+          if (state.config.sampleCount === 0 && state.config.traceCount === 0 && !state.config.blankPaper) {
+            state.config.sampleCount = 1;
+            state.config.traceCount = 1;
             updated = true;
           }
           state.config.showOuterBorder = true;

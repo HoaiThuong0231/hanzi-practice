@@ -13,6 +13,7 @@ import { FILL_STYLES, getPageTitle } from '../types';
 import { isChinesePunctuation, calculateOuterFrameBounds, isStandardKaiTiMode } from './layout-engine';
 import { getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG, preloadStrokeDataForChars } from './stroke-engine';
 import { generatePinyinBoxSVG } from './grid-engine';
+import { getBasicStroke } from '../data/basic-strokes';
 
 const getFillStyleDash = (style: string) => {
   const info = FILL_STYLES.find(s => s.style === style);
@@ -553,12 +554,14 @@ function createPageSVG(
 
       const strokeData = cell.character ? getCachedStrokeData(cell.character) : null;
 
+      const isBasicStrokeChar = cell.character ? !!getBasicStroke(cell.character) : false;
+
       if (isVerticalLine) {
         if (cell.character && cell.opacity > 0) {
           const charH = colW * 1.12;
           const traceColor = cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b');
 
-          if (strokeData && isDefaultKaiTi) {
+          if (strokeData && (isDefaultKaiTi || isBasicStrokeChar)) {
             const xOffset = Math.max(0, (colW - renderCharSize) / 2);
             const yOffset = Math.max(0, (charH - renderCharSize) / 2);
             const svgMarkup = generateFullCharSVG(
@@ -602,7 +605,7 @@ function createPageSVG(
 
           if (hideTrace && cell.type === 'trace') {
             // Hide trace character in line mode if requested
-          } else if (strokeData && isDefaultKaiTi) {
+          } else if (strokeData && (isDefaultKaiTi || isBasicStrokeChar)) {
             const xOffset = Math.max(0, (stepW - renderCharSize) / 2);
             const yOffset = Math.max(0, baseLineH - renderCharSize - 0.6);
             const svgMarkup = generateFullCharSVG(
@@ -654,7 +657,7 @@ function createPageSVG(
         while (tempG.firstChild) {
           cellGroup.appendChild(tempG.firstChild);
         }
-      } else if (cell.character && strokeData && cell.opacity > 0 && isDefaultKaiTi) {
+      } else if (cell.character && strokeData && cell.opacity > 0 && (isDefaultKaiTi || isBasicStrokeChar)) {
         const traceColor = cell.type === 'trace' ? '#64748b' : (config.fontColor || '#1e293b');
         const svgMarkup = generateFullCharSVG(
           strokeData.strokes,

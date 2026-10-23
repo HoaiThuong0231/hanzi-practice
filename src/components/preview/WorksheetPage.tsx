@@ -12,6 +12,7 @@ import { generateGridSVG, generatePinyinBoxSVG, type GridSVGOptions } from '../.
 import { isChinesePunctuation, calculateOuterFrameBounds, isStandardKaiTiMode } from '../../engines/layout-engine';
 import { FILL_STYLES, getPageTitle } from '../../types';
 import { loadStrokeData, getCachedStrokeData, generateStrokeStepSVG, generateFullCharSVG, type StrokeCharData } from '../../engines/stroke-engine';
+import { getBasicStroke } from '../../data/basic-strokes';
 
 interface WorksheetPageProps {
   page: PageLayout;
@@ -490,8 +491,9 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
 
                       // If user chose a custom font (Hành Khải Bút Cứng, Hành Thư, Thư Pháp, Viết Tay, Tống Thể, etc.), render using CSS font
                       const isDefaultKaiTi = isStandardKaiTiMode(config);
+                      const isBasicStrokeChar = cell.character ? !!getBasicStroke(cell.character) : false;
 
-                      if (charStroke && isDefaultKaiTi) {
+                      if (charStroke && (isDefaultKaiTi || isBasicStrokeChar)) {
                         const xOffset = Math.max(0, (stepW - renderCharSize) / 2);
                         // Bottom of character rests right above the ruled line (at baseLineH)
                         const yOffset = Math.max(0, baseLineH - renderCharSize - 0.6);
@@ -550,7 +552,7 @@ const WorksheetPage: React.FC<WorksheetPageProps> = React.memo(({
                         ),
                       }}
                     />
-                  ) : cell.character && charStroke && cell.opacity > 0 && isStandardKaiTiMode(config) ? (
+                  ) : cell.character && charStroke && cell.opacity > 0 && (isStandardKaiTiMode(config) || (cell.character ? !!getBasicStroke(cell.character) : false)) ? (
                     <g
                       dangerouslySetInnerHTML={{
                         __html: generateFullCharSVG(

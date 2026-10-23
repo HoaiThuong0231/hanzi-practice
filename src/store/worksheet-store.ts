@@ -228,7 +228,9 @@ function updateConfigAndLayout(
   // If switching to an incompatible grid, reset practiceMode to 'single'
   const isStrokeIncompatibleGrid = isAnyVertical || newConfig.gridType === 'line';
   const isStrokeMode = newConfig.practiceMode === 'stroke' || newConfig.practiceMode === 'radical' || newConfig.practiceMode === 'basicStroke';
-  if (isStrokeIncompatibleGrid && isStrokeMode) {
+  if (configUpdate.practiceMode === 'basicStroke' && isStrokeIncompatibleGrid) {
+    newConfig.gridType = 'tian';
+  } else if (isStrokeIncompatibleGrid && isStrokeMode) {
     newConfig.practiceMode = 'single';
     if (!configUpdate.headerTitle) {
       newConfig.headerTitle = MODE_TITLES['single'];

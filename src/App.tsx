@@ -20,13 +20,17 @@ const App: React.FC = () => {
   const [exporting, setExporting] = useState(false);
   const isExportingRef = useRef(false);
 
-  // Auto-heal legacy or invalid practiceMode from old localStorage
+  // Auto-heal legacy or invalid practiceMode from old localStorage, and support ?mode= URL param
   React.useEffect(() => {
     const validModes = ['single', 'vocabulary', 'sentence', 'paragraph', 'pinyin', 'pinyinMeaning', 'stroke', 'basicStroke', 'radical', 'pinyinDictation'];
-    if (!validModes.includes(config.practiceMode as any)) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const modeParam = urlParams.get('mode');
+    if (modeParam && validModes.includes(modeParam as any)) {
+      useWorksheetStore.getState().setPracticeMode(modeParam as any);
+    } else if (!validModes.includes(config.practiceMode as any)) {
       useWorksheetStore.getState().setPracticeMode('single');
     }
-  }, [config.practiceMode]);
+  }, []);
 
   // PDF Export (1-click direct download with concurrency protection)
   const handleExportPdf = useCallback(async () => {

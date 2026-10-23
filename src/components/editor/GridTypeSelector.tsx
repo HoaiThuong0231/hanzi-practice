@@ -46,14 +46,20 @@ const GridTypeSelector: React.FC = () => {
         {GRID_TYPES.map((grid) => {
           const isSelected = config.gridType === grid.type;
           const thumbnail = generateGridThumbnail(grid.type, 48);
+          const isVertical = grid.type.startsWith('vertical');
+          const isDisabled = config.practiceMode === 'basicStroke' && isVertical;
 
           return (
             <button
               key={grid.type}
-              onClick={() => setGridType(grid.type as GridType)}
-              disabled={false}
+              onClick={() => {
+                if (isDisabled) return;
+                setGridType(grid.type as GridType);
+              }}
+              disabled={isDisabled}
               aria-label={`${grid.name} ${grid.chineseName}`}
               aria-pressed={isSelected}
+              title={isDisabled ? 'Không hỗ trợ ô dọc cho chế độ Nét cơ bản' : grid.description}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -64,24 +70,25 @@ const GridTypeSelector: React.FC = () => {
                 borderRadius: 'var(--radius-lg)',
                 backgroundColor: isSelected
                   ? 'var(--color-primary-light)'
-                  : 'var(--color-bg-elevated)',
-                cursor: 'pointer',
-                opacity: 1,
+                  : isDisabled
+                    ? 'var(--color-bg-secondary, #f1f5f9)'
+                    : 'var(--color-bg-elevated)',
+                cursor: isDisabled ? 'not-allowed' : 'pointer',
+                opacity: isDisabled ? 0.35 : 1,
                 transition: 'all var(--transition-fast)',
                 minHeight: '80px',
                 minWidth: '80px',
                 outline: 'none',
                 boxShadow: isSelected ? '0 0 0 3px rgba(37, 99, 235, 0.2)' : 'var(--shadow-sm)',
-                pointerEvents: 'auto',
               }}
               onMouseEnter={(e) => {
-                if (!isSelected) {
+                if (!isSelected && !isDisabled) {
                   e.currentTarget.style.borderColor = 'var(--color-border-hover)';
                   e.currentTarget.style.boxShadow = 'var(--shadow-md)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (!isSelected) {
+                if (!isSelected && !isDisabled) {
                   e.currentTarget.style.borderColor = 'var(--color-border)';
                   e.currentTarget.style.boxShadow = 'var(--shadow-sm)';
                 }
@@ -94,11 +101,16 @@ const GridTypeSelector: React.FC = () => {
               <div style={{
                 fontSize: 'var(--text-xs)',
                 fontWeight: isSelected ? 600 : 400,
-                color: isSelected ? 'var(--color-primary-dark)' : 'var(--color-text-secondary)',
+                color: isDisabled
+                  ? 'var(--color-text-muted, #94a3b8)'
+                  : (isSelected ? 'var(--color-primary-dark)' : 'var(--color-text-secondary)'),
                 textAlign: 'center',
                 lineHeight: 1.3,
               }}>
                 <div>{grid.name}</div>
+                {isDisabled && (
+                  <div style={{ fontSize: '10px', color: '#ef4444', marginTop: '2px' }}>(Đã khoá)</div>
+                )}
               </div>
             </button>
           );

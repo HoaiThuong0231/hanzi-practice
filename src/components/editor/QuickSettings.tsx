@@ -184,8 +184,6 @@ const QuickSettings: React.FC<QuickSettingsProps> = ({ onOpenTemplates }) => {
             color: '#0f172a',
             bg: '#f8fafc',
             border: '#cbd5e1',
-            disabled: !isStrokeCompatible,
-            disabledReason: 'Chỉ dùng cho ô vuông, ô điền, ô mễ, ô hồi cung',
           },
           {
             mode: 'radical',
@@ -231,6 +229,15 @@ const QuickSettings: React.FC<QuickSettingsProps> = ({ onOpenTemplates }) => {
                       if (isActive) {
                         store.setPracticeMode('single');
                       } else {
+                        if (m.mode === 'basicStroke') {
+                          const isCompat = ['square', 'tian', 'mi', 'hui', 'oHoi'].includes(config.gridType);
+                          store.updateConfig({
+                            practiceMode: 'basicStroke',
+                            gridType: isCompat ? config.gridType : 'tian',
+                            headerTitle: 'BẢNG CÁC NÉT CƠ BẢN TIẾNG TRUNG',
+                          });
+                          return;
+                        }
                         if (m.mode === 'radical') {
                           const hasRadicals = config.characters && config.characters.split(/\s+/).some(c => ALL_214_RADICALS.includes(c));
                           store.updateConfig({

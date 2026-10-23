@@ -900,7 +900,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           type: isEmptyStyle ? 'empty' : 'trace',
           x: 0,
           y: 0,
-          pinyin: undefined,
+          pinyin: (showPinyin && sampleCount === 0 && t === 0) ? charPinyin : (showPinyin && sampleCount === 0 && t === 1 ? charNameVi : undefined),
           opacity: isEmptyStyle ? 0 : getOpacityForStyle(config.fillStyle, config.fontOpacity),
           fillStyle: config.fillStyle,
         });
@@ -1004,7 +1004,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           strokeStepIndex: s,
           x: 0,
           y: 0,
-          pinyin: undefined,
+          pinyin: (showPinyin && sampleCount === 0 && s === 0) ? charPinyin : undefined,
           opacity: stepOpacity,
           fillStyle: config.fillStyle,
         });
@@ -1176,7 +1176,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
             type: isEmptyStyle ? 'empty' : 'trace',
             x: 0,
             y: 0,
-            pinyin: undefined,
+            pinyin: (showPinyin && sampleCount === 0 && t === 0) ? variantPinyin : undefined,
             opacity: isEmptyStyle ? 0 : getOpacityForStyle(config.fillStyle, config.fontOpacity),
             fillStyle: config.fillStyle,
           });
@@ -1448,7 +1448,7 @@ export function computeLayout(config: WorksheetConfig): LayoutResult {
           type: isEmptyStyle ? 'empty' : 'trace',
           x: 0,
           y: 0,
-          pinyin: undefined,
+          pinyin: (showPinyin && sampleCount === 0 && i === 0) ? charPinyin : undefined,
           opacity: isEmptyStyle ? 0 : getOpacityForStyle(config.fillStyle, config.fontOpacity),
           fillStyle: config.fillStyle,
         });
@@ -2296,9 +2296,7 @@ export function calculateOuterFrameBounds(
     gridOffsetX = Math.max(0, (layout.usableWidth - gridW) / 2);
 
     const firstRow = page.rows[0];
-    const topY = firstRow?.cells[0]?.y !== undefined
-      ? (isBoxWithPinyinHeader ? firstRow.y : firstRow.cells[0].y)
-      : (firstRow?.y ?? 0);
+    const topY = firstRow ? firstRow.y : 0;
     const lastRow = page.rows[page.rows.length - 1];
     const bottomY = lastRow?.cells[0]?.y !== undefined
       ? (lastRow.cells[0].y + layout.gridSizeMm)
